@@ -1,0 +1,115 @@
+.nolist
+	#include "ti83pce.inc"
+	#macro bcall(x)
+		call x
+	#endmacro
+	#DEFINE		AppVarSize			InPS2 - beginHomescreenHook + InGetCSC - cpyInRAM + endHomescreenHook - cpyInRAMGetCSC + 1
+	#DEFINE		isProtected			6
+	#DEFINE		GoUpDisplayed		5
+	#DEFINE		GoDownDisplayed		4
+	#DEFINE		bugOccured			pixelShadow
+	#DEFINE		nbrLbls				pixelshadow2
+	#DEFINE		lastLblDisplayed	pixelshadow2+3
+	#DEFINE		mn					pixelshadow2+6		; used as register
+.list
+	.org userMem-2
+	.db tExtTok,tAsm84CeCmp
+
+start:
+	call _clrlcdfull
+	bit homescreenHookActive, (IY+hookFlags2)
+	jr nz,uninstallPHASM
+
+	ld hl,Group
+	call _mov9ToOp1
+	call _chkfindsym
+	jp c,doesNotExist
+	ld hl,32
+	add hl,de
+	call _setHomescreenHook
+	ld de,68
+	add hl,de
+	call _setGetCSCHook
+
+	ld hl,AppVar
+	call _Mov9ToOP1
+	call _chkfindsym
+	call nc,_DELVAR
+	ld hl,AppVarSize
+	push hl
+	call _createAppVar
+	inc de
+	inc de
+	ld hl,beginHomescreenHook
+	pop bc
+	ldir
+	
+	ld hl,installed
+	ld a,3
+	ld (curcol),a
+	ld (currow),a
+	call _puts
+	ld a,10
+	ld (curcol),a
+	ld a,5
+	ld (currow),a
+	call _puts
+	jr Quit
+
+
+uninstallPHASM:
+	res homescreenHookActive, (IY+hookFlags2)
+	res getCSCHookActive, (IY+hookFlags2)
+
+	ld hl,AppVar
+	call _Mov9ToOP1
+	call _chkfindsym
+	call nc,_DELVAR
+
+	ld hl,uninstalled
+	ld a,2
+	ld (curcol),a
+	inc a
+	ld (currow),a
+	call _puts
+	jr Quit
+
+
+doesNotExist:
+	ld hl,doesNotExistText
+	ld a,17
+	ld (pencol),a
+	ld a,50
+	ld (penrow),a
+	call _vputs
+	push hl
+	ld hl,10
+	ld (pencol),hl
+	ld a,70
+	ld (penrow),a
+	pop hl
+	call _vputs
+
+Quit:
+	call _getkey
+	call _Clrtxtshd
+	call _clrlcdfull
+	call _homeup
+	ret
+
+Group:
+	.db GroupObj,"PHASM",0
+AppVar:
+	.db AppVarObj,"PH",0
+doesNotExistText:
+	.db "Vous devez transferer le Group PHASM.",0
+	.db "Veuillez le mettre, puis re-executer PHASM.",0
+installed:
+	.db "PHASM est maintenant",0,"actif !",0
+uninstalled:
+	.db "PHASM n'est plus actif",0
+
+#include "AppVar.z80"
+.echo InPS2 - beginHomescreenHook + beginGetkeyHook - $D052C6
+.echo AppVarSize
+.end

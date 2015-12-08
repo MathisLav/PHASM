@@ -1,0 +1,14 @@
+.nolist
+	#include "ti83pce.inc"
+	#macro bcall(x)
+		call x
+	#endmacro
+	#DEFINE		sizeHomeScreenHook		652
+.list
+	
+	ret
+	#include "executor.z80"
+	#include "InstantGoto.z80"
+
+.echo "HomescreenHook Group : ", endHSHook - beginHomescreenHook, " bytes"
+.end

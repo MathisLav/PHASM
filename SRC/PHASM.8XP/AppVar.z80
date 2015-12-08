@@ -1,0 +1,869 @@
+beginHomescreenHook:
+	ld hl,0
+	ld de,$D052C6
+	ld bc,beginGetkeyHook - cpyInRAM + 1
+	ldir
+	jp $D052C6+4
+
+InPS2:
+	.org $D052C6
+cpyInRAM:
+	.db progobj,"#",0,0
+
+	ld hl,cpyInRAM
+	call _Mov9ToOP1
+	call _chkfindsym
+	ret c
+	push de
+	call _zeroop1
+	pop hl
+	ld bc,0
+	ld c,(hl)
+	inc hl
+	inc hl
+	ld a,(hl)
+	cp tProg
+	jp nz,QuitHook
+	push bc
+
+	ld de,OP1
+	ldir
+	ld a,ProgObj
+	ld (OP1),a
+	call _chkfindsym
+	jr nc,progExists
+	pop hl
+	cp a
+	ret
+progExists:
+	call _ChkInRam
+	jp z,executesAsmProgram
+ArchivedProgram:
+	res isProtected, (iy+asm_Flag3)
+	ld a,(hl)
+	cp 6
+	jr nz,notProtected
+	set isProtected, (iy+asm_Flag3)
+notProtected:
+	call _pushrealo1
+	call _ARC_UNARC
+
+	ex de,hl
+	ld bc,0
+	ld c,(hl)
+	inc hl
+	ld b,(hl)
+	inc hl
+	push hl
+	inc hl
+	ld a,(hl)
+	push af
+	push bc
+
+	ld hl,TEMPname
+	call _Mov9ToOP1
+	call _chkfindsym
+	call nc,_DELVAR
+	pop hl				; HL = program's size
+	push hl
+	call _createprog
+	inc de
+	inc de
+	pop bc				; BC = program's size
+	pop af				; AF = tAsm84CeCmp if assembly
+	pop hl				; HL = content
+	push bc
+	push af
+	ldir				; prgmTTEMP = content
+
+	call _poprealo1
+	call _pushrealo1
+	call _ARC_UNARC
+
+	call _op4toOP1
+	pop af
+	pop bc
+	pop hl
+	ld hl,6
+	cp tAsm84CeCmp
+	jr nz,executesArchivedBasicProgram
+	push bc
+	xor a
+	jr executesArchivedAsmProgram
+
+QuitHook:
+	cp a
+	ret
+
+executesArchivedBasicProgram:
+	ld hl,errorHandler
+	call _PushErrorHandler
+	set 0,(iy+3)
+	set 1,(iy+8)
+	set 6,(iy+12)
+	call _parseInp
+	res 6,(iy+12)
+	res 1,(iy+8)
+	res 0,(iy+3)
+	call _popErrorHandler
+	ld a,1
+deleteTemp:
+	push af
+	ld hl,TEMPname
+	call _Mov9ToOP1
+	call _chkfindsym
+	call nc,_DELVAR
+	pop af
+	or a
+	ret nz
+
+	call _ClrLCDFull
+	ld a,(errNo)		; We remove the goTo option
+	and %01111111
+	ld (errNo),a
+	jp _JErrorNo
+
+errorHandler:
+	xor a
+	jr deleteTemp
+
+
+executesAsmProgram:
+	inc de
+	inc de
+	inc de
+	ld a,(de)
+	cp tAsm84CeCmp
+	pop hl
+	jr nz,QuitHook
+executesArchivedAsmProgram:
+	push af
+	push hl
+	ld a,tProg
+	ld (OP1),a
+	call _OP1ToOP6
+	
+	ld hl,BASICname
+	call _Mov9ToOP1
+	ld a,progobj
+	ld (OP1),a
+	call _chkfindsym
+	call nc,_DELVAR
+	pop bc
+	push bc
+	ld hl,14
+	add hl,bc
+	call _createprog
+	inc de
+	inc de
+	ld hl,BASICcontent
+	ld bc,2
+	ldir
+	ld hl,OP6
+	pop bc
+	ldir
+	ld bc,12
+	ld hl,BASICcontent+2
+	ldir
+	call _pushrealo4
+
+	ld hl,BASICcontent+5
+	call _Mov9ToOP1
+	call _chkfindsym
+	call nc,_DELVAR
+	ld hl,endHomescreenHook - cpyInRAM + BASICcontent - RESTOREcontent
+	call _createprog
+	inc de
+	inc de
+	ld hl,RESTOREcontent
+	ld bc,BASICcontent - RESTOREcontent
+	ldir
+	ld hl,cpyInRAM
+	ld bc,endHomescreenHook - cpyInRAM
+	ldir
+
+	call _poprealo1
+	ld hl,errorAsm
+	call _PushErrorHandler
+	set 0,(iy+3)
+ 	set 1,(iy+8)
+ 	set 6,(iy+12)
+	call _parseInp
+ 	res 6,(iy+12)
+	res 1,(iy+8)
+ 	res 0,(iy+3)
+ 	call _popErrorHandler
+	xor a
+	ld (bugOccured),a
+	
+AfterExecution:
+	ld hl,BASICcontent+5
+	call _Mov9ToOP1
+	ld a,progobj
+	ld (OP1),a
+	call _chkfindsym
+ 	call nc,_DELVAR ; Delete RRESTORE
+ 	
+	ld hl,BASICname
+	call _Mov9ToOp1
+	call _chkfindsym
+ 	ld b,0
+ 	call nc,_DELVAR ; Delete PPHASM
+ 	call _Clrtxtshd
+
+ 	pop af
+ 	or a
+ 	jr z,UpdateStatus
+
+ 	ld a,(bugOccured)
+ 	cp 1
+ 	ret nz
+ 	jp _JErrorNo
+
+; We update the program status
+UpdateStatus:
+	ld hl,TEMPname
+	call _Mov9ToOP1
+	call _chkfindsym
+	inc de
+	inc de
+	pop bc
+	push de
+	push bc
+	call _poprealo1
+	call _chkfindsym
+	call nc,_DELVARARC
+	pop hl
+	push hl
+	bit isProtected, (iy+asm_Flag3)
+	jr nz,protectedProgram
+	call _createprog
+suitProtectedProgram:
+	inc de
+	inc de
+	pop bc
+	pop hl
+	ldir
+	call _op4toOP1
+	call _ARC_UNARC
+
+	ld hl,TEMPname
+	call _Mov9ToOP1
+	call _chkfindsym
+	call nc,_DELVAR
+
+	ld a,(bugOccured)
+ 	cp 1
+ 	ret nz
+ 	jp _JErrorNo
+
+ProtectedProgram:
+	call _createProtProg
+	jr suitProtectedProgram
+
+errorAsm:
+	ld a,1
+	ld (bugOccured),a
+	jp AfterExecution
+
+RESTOREcontent:
+	.db tExtTok,tAsm84CeCmp
+	ld bc,endHomescreenHook - cpyInRAM
+	ld hl,userMem-2 + BASICcontent - RESTOREcontent
+	ld de,$D052C6
+	ldir
+	ret
+BASICcontent:
+	.db $BB,$6A,tenter,$BB,$6A,tProg,"RRESTORE"
+BASICname:
+	.db progobj,"PPHASM",0
+TEMPname:
+	.db progobj,"TTEMP",0
+
+
+beginGetkeyHook:
+	ld hl,0
+	ld de,$D052C6
+	ld bc,endHomescreenHook - cpyInRAMGetCSC + 1
+	ldir
+	jp $D052C6
+
+InGetCSC:
+	.org $D052C6
+cpyInRAMGetCSC:
+	res shiftAlpha, (iy+shiftFlags)
+
+	ld hl,(editCursor)
+	push hl
+	ld hl,(editTail)
+	push hl
+	call _bufToTop
+checkContext:
+	call _BufRight
+	jr nz,suit
+	pop hl
+	ld (editTail),hl
+	pop hl
+	ld (editCursor),hl
+	xor a
+	ret
+suit:
+	ld a,e
+	cp tEnter
+	jr nz,checkContext
+
+	call _cursorOff
+	call _clrlcdfull
+	xor a					; Put 0 to the lastLblDisplayed flag
+	ld (lastLblDisplayed),a
+	ld hl,40				; position of the first Lbl displayed
+	ld (penrow),hl
+	ld hl,25
+	ld (pencol),hl
+	ld hl,1
+	ld bc,0
+	call RT_displayLbl		; routine which displays the Lbls
+	ld hl,(nbrLbls)
+	ld de,0
+	sbc hl,de
+	pop hl
+	pop de
+	ret z
+	push de
+	push hl
+
+LblsDisplayed:
+	ld hl,40				; position of the cursor
+	ld (penrow),hl
+	ld hl,10
+	ld (pencol),hl
+	ld de,1
+	push de					; the last (or first) number on the stack will be the number of the Lbl ahead the cursor
+loop:
+	ld a,'>'
+	ld bc,(pencol)
+	call _VPutMap			; Displaying of the cursor
+	ld (pencol),bc
+	call _getkey			; we're waiting for a key
+	cp kClear
+	jp z,restoreEditor
+
+	ld hl,(pencol)
+	ld bc,60
+	cp kLeft
+	jp z,CurLeft
+	cp kRight
+	jp z,CurRight
+horizontal:
+	ld (pencol),hl
+
+	ld hl,(penrow)
+	ld bc,20
+	cp kUp
+	jp z,CurUp
+	cp kDown
+	jp z,CurDown
+vertical:
+	ld (penrow),hl
+	cp kEnter
+	jr nz,loop
+
+	call _clrlcdfull
+	call _Clrtxtshd
+	xor a				; Displaying of "PROGRAM:XXXX"
+	ld (curcol),a
+	ld (currow),a
+	ld hl,TEXTProgram
+	call _puts
+	ld hl,OP1+2
+	call _puts
+	
+	call _bufToTop		; The routine will jump to the (HL) Lbl
+	pop hl
+	push hl
+	ld de,1
+	sbc hl,de
+	pop hl
+	pop de				; We're removing editTail and editCursor from the stack (initial values)
+	pop de
+	jr nz,checkGoDown
+
+	call _newline
+	ld a,':'
+	call _PutMap
+	ld a,1
+	ld (curcol),a
+	call _DispEOW
+	xor a
+	ret
+
+checkGoDown:
+	ld de,(nbrLbls)
+	push hl
+	or a
+	sbc hl,de
+	pop hl
+	dec hl
+	jr nz,jumpToTheLblSelected
+	bit GoDownDisplayed, (IY+asm_Flag3)
+	jr z,jumpToTheLblSelected
+	call _bufToBtm
+	ld b,9
+updateScreen2:
+	call _BufLeft
+	ld a,e
+	cp tEnter
+	jr nz,updateScreen2
+	djnz updateScreen2
+	call _dispTail
+	xor a
+	ret
+
+jumpToTheLblSelected:
+	push hl
+	call _BufRight
+	pop hl
+	ld a,e
+	cp tLbl
+	jr nz,jumpToTheLblSelected
+	dec hl
+	push hl
+	ld de,0				; We check if HL = 0
+	or a
+	sbc hl,de
+	pop hl
+	jr nz,jumpToTheLblSelected
+	
+	call _BufLeft
+
+	ld b,4				; Thanks to updateScreen and moveToLbl, we center the Lbl
+updateScreen:
+	call _BufLeft
+	jr z,tooHigh
+	ld a,e
+	cp tEnter
+	jr nz,updateScreen
+	djnz updateScreen
+	call _DispEOW		; updates screen
+
+	ld b,4
+moveToLbl:
+	call _BufRight
+	ret z
+	ld c,e
+	push bc
+	call _putTokString
+	pop bc
+	ld a,c
+	cp tEnter
+	jr nz,moveToLbl
+	djnz moveToLbl
+
+	xor a
+	ret
+
+tooHigh:
+	push bc
+	call _newline
+	ld a,':'
+	call _PutMap
+	ld a,1
+	ld (curcol),a
+	call _DispEOW
+	pop bc
+	ld a,4
+	sub b
+	or a
+	ret z
+	ld b,a
+	jr moveToLbl
+
+restoreEditor:
+	pop de
+	call _clrlcdfull
+	call _Clrtxtshd
+
+	pop hl
+	ld (editTail),hl
+	pop hl
+	ld (editCursor),hl
+
+	ld a,(curcol)
+	ld e,a
+	ld a,(currow)
+	ld b,a
+	xor a				; Displaying of "PROGRAM:XXXX"
+	ld (curcol),a
+	ld (currow),a
+	ld hl,TEXTProgram
+	call _puts
+	ld hl,OP1+2
+	call _puts
+	jp updateScreen-2
+
+CurLeft:
+	call erasePrint	; Erasing of the cursor
+
+	pop de			; DE = number of the Lbl ahead the cursor
+	push de
+	push hl			; HL = position X of the cursor
+
+	ld hl,9			; We check if we can move left
+	ex de,hl
+	or a
+	sbc hl,de
+	ex de,hl
+	pop hl
+	jp m,loop
+	jp z,loop
+	
+	pop ix
+	push de
+	ld a,(pencol)
+	cp 10			; Must we scroll to see the other Lbls?
+	jp z,RT_Refresh	; Routine wich scrolls
+
+	sbc hl,bc		; we move the cursor position
+	xor a
+	jp horizontal
+	
+CurRight:
+	call erasePrint	; Erasing of the cursor
+
+	pop de			; DE = number of the Lbl ahead the cursor
+	push de
+
+	ld a,(pencol)
+	cp 250			; We check if we can move right without any scroll
+	jr nz,noScroll
+	ld a,(lastLblDisplayed)	; Last Lbl has been displayed?
+	or a
+	jp nz,loop
+
+	ld hl,9			; We're Updating the number of the Lbl ahead the cursor
+	add hl,de
+	pop de
+	push hl
+	ld de,36
+	sbc hl,de
+	ex de,hl		; DE is the number of the first Lbl wich must be displayed
+	jp RT_Refresh
+
+noScroll:
+	push hl
+	ld hl,9			; We're Updating the number of the Lbl ahead the cursor
+	add hl,de
+
+	push hl
+	ld de,(nbrLbls)	; We will be too far?
+	or a
+	sbc hl,de
+	pop de
+	jp m,NotAtTheEnd
+	jp z,NotAtTheEnd
+
+	ld a,9			; If yes, we adjust the position Y of the cursor (must be in front of the last Lbl)
+	ld hl,(nbrLbls)
+	dec hl
+	call _DivHLByA
+	sla a
+	sla a
+	ld e,a
+	sla a
+	sla a
+	add a,e
+	ld e,40
+	add a,e
+	ld (penrow),a
+
+	ex de,hl
+	pop ix
+	ld (mn),ix
+	pop hl
+	ld ix,(nbrLbls)
+	push ix
+	ld a,9
+	dec hl
+	call _DivHLByA	; Does the last Lbl is on the same line as we were?
+	or a
+	sbc hl,de
+	jp z,loop
+	ld hl,(mn)
+	add hl,bc
+	xor a
+	jp horizontal
+
+NotAtTheEnd:
+	pop hl
+	pop ix
+	push de
+
+	add hl,bc
+	xor a
+	jp horizontal
+
+CurUp:
+	call erasePrint	; Erasing of the cursor
+
+	pop de			; DE = number of the Lbl ahead the cursor
+	push de
+	push hl
+	ld hl,1
+	ex de,hl
+	or a
+	sbc hl,de		; We check if we can move up
+	ex de,hl
+	pop hl
+	jp z,loop
+	ld a,(penrow)
+	cp 40
+	jp z,loop
+
+	pop ix			; If yes we update cursor position and the number of the Lbl ahead the cursor
+	push de
+	or a
+	sbc hl,bc
+	xor a
+	jp vertical
+
+
+CurDown:
+	call erasePrint	; Erasing of the cursor
+
+	pop de			; DE = number of the Lbl ahead the cursor
+	push de
+	push hl
+	ld hl,(nbrLbls)
+	ex de,hl
+	or a
+	sbc hl,de		; We check if we can move down
+	pop hl
+	jp z,loop
+	ld a,(penrow)
+	cp 200
+	jp z,loop
+
+	pop de			; If yes we update cursor position and the number of the Lbl ahead the cursor
+	inc de
+	push de
+	add hl,bc
+	xor a
+	jp vertical
+
+
+erasePrint:			; I think it is clear enough :p
+	push bc
+	ld bc,(pencol)
+	ld a,' '
+	call _VPutMap
+	ld a,' '
+	call _VPutMap
+	ld a,' '
+	call _VPutMap
+	ld (pencol),bc
+	pop bc
+	ret
+
+RT_Refresh:			; It displays the Lbls
+	xor a			; we Initialize the flag
+	ld (lastLblDisplayed),a
+	res GoUpDisplayed, (iy+asm_Flag3)
+	res GoDownDisplayed, (iy+asm_Flag3)
+	push de
+	call _clrlcdfull
+	pop de
+	ld hl,(penrow)	; saving of the cursor position
+	push hl
+	ld hl,(pencol)
+	push hl
+	ld hl,40		; It's where the first Lbl will be displayed (top left corner)
+	ld (penrow),hl
+	ld hl,25
+	ld (pencol),hl
+
+	ex de,hl		; HL = first Lbl wich must be displayed
+	dec hl
+	ld a,9
+	call _DivHLByA	; We put in HL the number of Lbls to ignore
+	push hl
+	pop de
+	sla l
+	rl h
+	sla l
+	rl h
+	sla l
+	rl h
+	add hl,de
+	inc hl
+	call RT_displayLbl
+
+	pop hl			; restoring of the cursor position
+	ld (pencol),hl
+	pop hl
+	ld (penrow),hl
+	pop hl
+	push hl
+	ld de,(nbrLbls)
+	or a			; We have been too far? (after the last Lbl)
+	sbc hl,de
+	jp m,loop
+	jp z,loop
+tooFar:
+	pop hl
+	push de
+	ex de,hl
+	ld a,9
+	call _DivHLByA	; We calculate the position Y of the last Lbl
+	sla a
+	sla a
+	ld b,a
+	sla a
+	sla a
+	add a,b
+	ld b,20
+	add a,b
+	ld (penrow),a
+	jp loop
+
+RT_displayLbl:
+	; INPUTS
+	;	HL : Nbr of Lbls to ignore
+	;	PENCOL/PENROW : Position first lbl
+	; OUTPUTS
+	;	nbrLbls : number of Lbls
+	;	lastLblDisplayed : 1 = YES, 0 = NO
+	;	Lbls displayed
+	push hl
+	call _bufToTop
+	pop hl
+	ld de,1				; If there's no Lbl to Ignore
+	or a
+	sbc hl,de
+	jr z,dispGoUp
+	dec hl
+	push hl
+	pop bc
+
+lblsToIgnore:			; We pass (HL) Lbls
+	push hl
+	call _BufRight
+	pop hl
+	ld a,e
+	cp tLbl
+	jr nz,lblsToIgnore
+
+	dec hl
+	ld de,0
+	push hl
+	or a
+	sbc hl,de
+	pop hl
+	jr nz,lblsToIgnore
+	jr displayLbl
+
+dispGoUp:
+	ld hl,TEXTGoUp
+	call _vputs
+	ld a,60
+	ld (penrow),a
+	ld hl,25
+	ld (pencol),hl
+	set GoUpDisplayed, (iy+asm_Flag3)
+	ld bc,1
+
+displayLbl:
+	ld a,e				; E = token under the current cursor position
+	push bc				; BC =  number of Lbls met
+	cp tLbl
+	jr nz,notALbl
+	pop bc
+	inc bc
+	push bc
+	ld bc,pixelshadow
+storeNmLbl:				; We put the name of the Lbl in pixelshadow to display it
+	call _BufRight
+	ld a,e
+	ld (bc),a
+	inc bc
+	jr z,EndLbl
+	cp tColon
+	jr z,EndLbl
+	cp tEnter
+	jr nz,storeNmLbl
+EndLbl:
+	xor a
+	dec bc
+	ld (bc),a
+	ld bc,(pencol)
+	ld hl,pixelshadow
+	call _vputs			; Displaying of the Lbl
+	ld (pencol),bc
+	
+	ld a,(penrow)		; we calculate the new coordinates
+	ld l,20
+	add a,l
+	ld (penrow),a
+	cp 220
+	jr nz,notALbl
+
+	ld bc,60
+	ld hl,(pencol)
+	add hl,bc
+	ld a,l
+	cp 69
+	jr z,fullScreen		; If the screen has been filled
+	ld (pencol),hl
+
+	ld a,40
+	ld (penrow),a
+notALbl:
+	call _BufRight
+	pop bc
+	jr nz,displayLbl	; If we are at the end of the program
+
+	push bc
+	pop hl
+	ld (nbrLbls),hl
+	jr checksIfItWasTheLastLbl
+
+fullScreen:
+	pop hl
+	ld (nbrLbls),hl
+
+checksIfItWasTheLastLbl: ; read the name of the Lbl to understand :p
+	call _BufRight
+	jr z,ItIs
+	ld a,e
+	cp tLbl
+	jr nz,checksIfItWasTheLastLbl
+	ret
+
+ItIs:
+	ld a,(penrow)
+	cp 220
+	jr nz,dispGoDown
+	ld a,(pencol)
+	cp 9
+	ret z
+dispGoDown:
+	ld a,1
+	ld (lastLblDisplayed),a
+
+	ld hl,TEXTGoDown
+	call _vputs
+	set GoDownDisplayed, (iy+asm_Flag3)
+	ld hl,nbrLbls
+	inc (hl)
+	bit GoUpDisplayed, (IY+asm_Flag3)
+	ret nz
+	inc (hl)
+	ret
+	
+TEXTProgram:
+	.db "PROGRAM:",0
+TEXTGoUp:
+	.db "Top",0
+TEXTGoDown:
+	.db "Btm",0
+endGetkeyHook:
+endHomescreenHook:

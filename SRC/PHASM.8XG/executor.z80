@@ -1,0 +1,39 @@
+; See InstantGoto for the comments : we do the same thing
+beginHomescreenHook:
+	.db 83h
+	cp 2
+	jr z,goodContext
+	cp a
+	ret
+
+goodContext:
+	call _zeroop1
+	ld a,AppVarObj
+	ld (OP1),a
+	ld a,'P'
+	ld (OP1+1),a
+	ld a,'H'
+	ld (OP1+2),a
+	call _ChkFindSym
+	jr c,ErrorMissing
+	call _chkinram
+	jr nz,ErrorMissing
+	inc de
+	inc de
+	push de
+	inc de
+	ld hl,17
+	add hl,de
+	ld (pixelShadow),hl
+	
+	ld hl,pixelShadow
+	ld bc,3
+	ldir
+	pop hl
+	jp (hl)
+
+
+ErrorMissing:
+	cp a
+	ret
+EndHSHook:

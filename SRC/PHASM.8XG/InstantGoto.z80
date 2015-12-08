@@ -1,0 +1,46 @@
+; ***************************** Instant GoTo ***************************** ;
+; It displays a menu which allows you to jump to the label you want if [Alpha] + [X,T,O,N] are pressed
+
+
+beginGetkeyHook:
+	.db 83h				; All hooks begin with .db 83h
+	cp 1Bh				; we check if the OS called the hook because a key has been pressed
+	ret nz
+	ld a,b				; A = key
+	cp skGraphvar
+	ret nz
+
+	bit shiftAlpha, (iy+shiftFlags)
+	ret z
+
+	call _pushrealo1	; Saving the name of the program edited
+	call _zeroop1
+	ld a,AppVarObj		; We obtain the address of the code (in PH AppVar)
+	ld (OP1),a
+	ld a,'P'
+	ld (OP1+1),a
+	ld a,'H'
+	ld (OP1+2),a
+	call _ChkFindSym
+	jr c,ErrorMissing
+	call _chkinram
+	jr nz,ErrorMissing
+	ld hl,sizeHomeScreenHook + 2	; We go after Homescreen Hook
+	add hl,de
+	push hl
+	ld de,18			; See AppVar.z80 at label "beginGetkeyHook" : we store the address which points after the "code which copies the code"
+	add hl,de
+	ld (pixelShadow),hl
+	call _poprealo1
+
+	pop de				; DE = Address of "[ld] HL,0"
+	push de
+	inc de
+	ld hl,pixelShadow	; (HL) = address of the code after the "code which copies the code" (nice sentence)
+	ld bc,3				; BC = 3 Bytes
+	ldir
+	pop hl				; HL = address of the "code which copies the code"
+	jp (hl)
+endGetkeyHook:
+
+.echo "Getkey Hook : ", endGetkeyHook - beginGetkeyHook, " bytes"
