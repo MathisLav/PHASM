@@ -1,6 +1,6 @@
 #PHASM (shell)
 
-##Feature
+##Features
 	
 PHASM is a hook. A hook is a code which is executed when a specific event occurs. It works on Ti-84+CE (or Ti-83 Premium CE).
 Furthermore, it's enough to press [Alpha] [X,T,O,n] to display a menu which allows you to go to any Lbl you want instantly.
