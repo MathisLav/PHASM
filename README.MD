@@ -4,7 +4,7 @@
 	
 PHASM is a hook. A hook is a code which is executed when a specific event occurs. It works on Ti-84+CE (or Ti-83 Premium CE).
 Thanks to PHASM, you will be able to run archived and assembly programs as Basic programs!
-Furthermore, it's enough to press [Alpha] [X,T,O,n] to display a menu which allows you to go to any Lbl you want instantly.
+Furthermore, it's enough to press [Alpha] [X,T,O,n] to display a menu which allows you to go to any Lbl you want in the program editor instantly.
 You can use PHASM and Cesium at the same time, they are compatible.
 	
 
