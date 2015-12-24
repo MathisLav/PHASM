@@ -29,10 +29,10 @@ start:
 	ld hl,32
 	add hl,de
 	call _setHomescreenHook
-	ld de,165
+	ld de,161
 	add hl,de
 	call _setGetCSCHook
-	ld de,86
+	ld de,88
 	add hl,de
 	call _setMenuHook
 
