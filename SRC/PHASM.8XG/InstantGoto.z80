@@ -9,7 +9,8 @@ beginGetkeyHook:
 	ld a,b				; A = key
 	cp skGraphvar
 	ret nz
-
+	
+	ld a,skGraphvar
 	bit shiftAlpha, (iy+shiftFlags)
 	ret z
 
@@ -22,9 +23,9 @@ beginGetkeyHook:
 	ld a,'H'
 	ld (OP1+2),a
 	call _ChkFindSym
-	jr c,ErrorMissing
+	jr c,quitGKHook
 	call _chkinram
-	jr nz,ErrorMissing
+	ret nz
 	ld hl,sizeHomeScreenHook + 2	; We go after Homescreen Hook
 	add hl,de
 	push hl
@@ -41,6 +42,8 @@ beginGetkeyHook:
 	ldir
 	pop hl				; HL = address of the "code which copies the code"
 	jp (hl)
-endGetkeyHook:
 
-.echo "Getkey Hook : ", endGetkeyHook - beginGetkeyHook, " bytes"
+quitGKHook:
+	cp a
+	ret
+endGetkeyHook:
