@@ -1,10 +1,11 @@
+LastArchivedProgramEdited:
+	.db 0,0,0,0,0,0,0,0,0
 beginHomescreenHook:
 	ld hl,0
 	ld de,$D052C6
 	ld bc,beginGetkeyHook - cpyInRAM + 1
 	ldir
 	jp $D052C6+4
-
 InPS2:
 	.org $D052C6
 cpyInRAM:
@@ -197,6 +198,7 @@ executesArchivedAsmProgram:
 	ld (bugOccured),a
 	
 AfterExecution:
+	res editArchivedProg, (IY+asm_Flag3)
 	ld hl,BASICcontent+5
 	call _Mov9ToOP1
 	ld a,progobj

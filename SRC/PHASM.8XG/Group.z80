@@ -3,12 +3,16 @@
 	#macro bcall(x)
 		call x
 	#endmacro
-	#DEFINE		sizeHomeScreenHook		652
+	#DEFINE		sizeHomeScreenHook		665
+	#DEFINE		editArchivedProgFlag	3
 .list
 	
 	ret
 	#include "executor.z80"
 	#include "InstantGoto.z80"
+	#include "editor.z80"
 
 .echo "HomescreenHook Group : ", endHSHook - beginHomescreenHook, " bytes"
+.echo "GetCSCHook Group : ", endGetkeyHook - beginGetkeyHook, " bytes"
+.echo "MenuHook Group : ", endMenuHook - beginMenuHook, " bytes\n"
 .end

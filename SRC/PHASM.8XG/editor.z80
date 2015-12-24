@@ -1,0 +1,54 @@
+beginMenuHook:
+	.db 83h
+	cp 3
+	jr nz,quitMenuHook
+	ld a,(menuCurrent)
+	cp mProgramHome
+	jr nz,quitMenuHook
+	ld a,(menuCurrent+1)
+	cp mPrgm_Edit
+	jr nz,quitMenuHook
+	ld a,b
+	cp cxPrgmEdit
+	jr nz,quitMenuHook
+
+	push bc
+	push de
+	call _releaseBuffer
+	call _PPutAway
+	pop de
+
+	ld hl,-9
+	add hl,de
+	call _Mov9ToOp1
+	ld a,progObj
+	ld (OP1),a
+	call _Op1ToOp6
+	call _chkfindsym
+	call _chkInRam
+	jr z,InRam
+
+	call _ARC_UNARC
+	call _zeroop1
+	ld a,AppVarObj
+	ld (OP1),a
+	ld a,'P'
+	ld (OP1+1),a
+	ld a,'H'
+	ld (OP1+2),a
+	call _chkfindsym
+	jp c,_ErrUndefined
+	inc de
+	inc de
+	ld hl,OP6
+	ld bc,9
+	ldir
+	set editArchivedProgFlag, (IY+asm_Flag3)
+
+InRam:
+	pop bc
+quitMenuHook:
+	cp a
+	ret
+endMenuHook:
+.end

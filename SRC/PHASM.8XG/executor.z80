@@ -1,12 +1,53 @@
 ; See InstantGoto for the comments : we do the same thing
 beginHomescreenHook:
 	.db 83h
-	cp 2
-	jr z,goodContext
-	cp a
-	ret
+	bit editArchivedProgFlag, (IY+asm_Flag3)
+	jr z,noProgramToArchive
 
-goodContext:
+
+	; The following code archives an unarchived program which has been edited thanks to PHASM
+	push bc
+	push af
+	call _pushrealo1
+
+	res editArchivedProgFlag, (IY+asm_Flag3)
+	call _zeroop1
+	ld a,AppVarObj		; We obtain the address of the code (in PH AppVar)
+	ld (OP1),a
+	ld a,'P'
+	ld (OP1+1),a
+	ld a,'H'
+	ld (OP1+2),a
+	call _ChkFindSym
+	jr c,noProgramToArchive-6
+	call _chkinram
+	jr nz,noProgramToArchive-6
+	inc de
+	inc de
+	ex de,hl
+	push hl
+	call _Mov9ToOp1
+	call _ChkFindSym
+	pop ix
+	jr c,noProgramToArchive-6
+	push ix
+	call _ARC_UNARC
+	pop de
+	ld h,d
+	ld l,e
+	ld (hl),0
+	inc de
+	ld bc,8
+	ldir
+
+	call _poprealo1
+	pop af
+	pop bc
+
+noProgramToArchive:
+	cp 2
+	jr nz,ErrorMissing
+
 	call _zeroop1
 	ld a,AppVarObj
 	ld (OP1),a
@@ -18,16 +59,18 @@ goodContext:
 	jr c,ErrorMissing
 	call _chkinram
 	jr nz,ErrorMissing
-	inc de
-	inc de
-	push de
-	inc de
-	ld hl,17
+	ld hl,11
+	add hl,de
+	push hl
+	inc hl
+	push hl
+	ld de,17
 	add hl,de
 	ld (pixelShadow),hl
 	
 	ld hl,pixelShadow
 	ld bc,3
+	pop de
 	ldir
 	pop hl
 	jp (hl)

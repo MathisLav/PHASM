@@ -3,10 +3,11 @@
 	#macro bcall(x)
 		call x
 	#endmacro
-	#DEFINE		AppVarSize			InPS2 - beginHomescreenHook + InGetCSC - cpyInRAM + endHomescreenHook - cpyInRAMGetCSC + 1
+	#DEFINE		AppVarSize			InPS2 - LastArchivedProgramEdited + InGetCSC - cpyInRAM + endHomescreenHook - cpyInRAMGetCSC + 1
 	#DEFINE		isProtected			6
 	#DEFINE		GoUpDisplayed		5
 	#DEFINE		GoDownDisplayed		4
+	#DEFINE		editArchivedProg	3
 	#DEFINE		bugOccured			pixelShadow
 	#DEFINE		nbrLbls				pixelshadow2
 	#DEFINE		lastLblDisplayed	pixelshadow2+3
@@ -19,6 +20,7 @@ start:
 	call _clrlcdfull
 	bit homescreenHookActive, (IY+hookFlags2)
 	jr nz,uninstallPHASM
+	res editArchivedProg, (IY+asm_Flag3)
 
 	ld hl,Group
 	call _mov9ToOp1
@@ -27,9 +29,12 @@ start:
 	ld hl,32
 	add hl,de
 	call _setHomescreenHook
-	ld de,68
+	ld de,165
 	add hl,de
 	call _setGetCSCHook
+	ld de,86
+	add hl,de
+	call _setMenuHook
 
 	ld hl,AppVar
 	call _Mov9ToOP1
@@ -40,7 +45,7 @@ start:
 	call _createAppVar
 	inc de
 	inc de
-	ld hl,beginHomescreenHook
+	ld hl,LastArchivedProgramEdited
 	pop bc
 	ldir
 	
@@ -60,6 +65,7 @@ start:
 uninstallPHASM:
 	res homescreenHookActive, (IY+hookFlags2)
 	res getCSCHookActive, (IY+hookFlags2)
+	res MenuHookActive, (IY+hookFlags2)
 
 	ld hl,AppVar
 	call _Mov9ToOP1
@@ -109,7 +115,8 @@ installed:
 uninstalled:
 	.db "PHASM n'est plus actif",0
 
+
 #include "AppVar.z80"
-.echo InPS2 - beginHomescreenHook + beginGetkeyHook - $D052C6
+.echo InPS2 - LastArchivedProgramEdited + beginGetkeyHook - cpyInRAM
 .echo AppVarSize
 .end
