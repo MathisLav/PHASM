@@ -5,6 +5,7 @@ beginHomescreenHook:
 	jr z,noProgramToArchive
 
 
+ArchiveEditedProgram:
 	; The following code archives an unarchived program which has been edited thanks to PHASM
 	push bc
 	push af
@@ -19,9 +20,9 @@ beginHomescreenHook:
 	ld a,'H'
 	ld (OP1+2),a
 	call _ChkFindSym
-	jr c,noProgramToArchive-6
+	jr c,endArchiveEditedProgram
 	call _chkinram
-	jr nz,noProgramToArchive-6
+	jr nz,endArchiveEditedProgram
 	inc de
 	inc de
 	ex de,hl
@@ -29,7 +30,7 @@ beginHomescreenHook:
 	call _Mov9ToOp1
 	call _ChkFindSym
 	pop ix
-	jr c,noProgramToArchive-6
+	jr c,endArchiveEditedProgram
 	push ix
 	call _ARC_UNARC
 	pop de
@@ -40,9 +41,16 @@ beginHomescreenHook:
 	ld bc,8
 	ldir
 
+endArchiveEditedProgram:
 	call _poprealo1
 	pop af
 	pop bc
+	cp $FF
+	jr nz,noProgramToArchive
+	jr notFirstEvent-2
+
+bridgeJR:	; To have only relative jumps
+	jr ArchiveEditedProgram
 
 noProgramToArchive:
 	cp 2

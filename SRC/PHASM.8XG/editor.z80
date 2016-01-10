@@ -1,5 +1,20 @@
 beginMenuHook:
 	.db 83h
+	cp 4
+	jr nz,notFirstEvent
+
+	bit editArchivedProgFlag, (IY+asm_Flag3)
+	jr z,notFirstEvent
+	push af
+	push hl
+	ld a,b
+	cp mProgramHome
+	ld a,$FF
+	jr z,bridgeJR
+	pop hl
+	pop af
+
+notFirstEvent:
 	cp 3
 	jr nz,quitMenuHook
 	ld a,(menuCurrent)

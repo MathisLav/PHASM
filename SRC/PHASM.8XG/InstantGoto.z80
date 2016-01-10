@@ -7,13 +7,17 @@ beginGetkeyHook:
 	cp 1Bh				; we check if the OS called the hook because a key has been pressed
 	ret nz
 	ld a,b				; A = key
+	
 	cp skGraphvar
 	ret nz
 	
-	ld a,skGraphvar
 	bit shiftAlpha, (iy+shiftFlags)
-	ret z
+	jr nz,alphaPressed
+	ld a,skGraphvar
+	and a
+	ret
 
+alphaPressed:
 	call _pushrealo1	; Saving the name of the program edited
 	call _zeroop1
 	ld a,AppVarObj		; We obtain the address of the code (in PH AppVar)
@@ -43,7 +47,4 @@ beginGetkeyHook:
 	pop hl				; HL = address of the "code which copies the code"
 	jp (hl)
 
-quitGKHook:
-	cp a
-	ret
 endGetkeyHook:

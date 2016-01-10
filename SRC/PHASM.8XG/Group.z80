@@ -4,15 +4,15 @@
 		call x
 	#endmacro
 	#DEFINE		sizeHomeScreenHook		665
-	#DEFINE		editArchivedProgFlag	3
+	#DEFINE		editArchivedProgFlag	7
 .list
 	
 	ret
 	#include "executor.z80"
-	#include "InstantGoto.z80"
 	#include "editor.z80"
+	#include "InstantGoto.z80"
 
 .echo "HomescreenHook Group : ", endHSHook - beginHomescreenHook, " bytes"
-.echo "GetCSCHook Group : ", endGetkeyHook - beginGetkeyHook, " bytes"
-.echo "MenuHook Group : ", endMenuHook - beginMenuHook, " bytes\n"
+.echo "MenuHook Group : ", endMenuHook - beginMenuHook, " bytes"
+.echo "GetCSCHook Group : ", endGetkeyHook - beginGetkeyHook, " bytes\n"
 .end

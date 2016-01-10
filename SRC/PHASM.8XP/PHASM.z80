@@ -4,10 +4,10 @@
 		call x
 	#endmacro
 	#DEFINE		AppVarSize			InPS2 - LastArchivedProgramEdited + InGetCSC - cpyInRAM + endHomescreenHook - cpyInRAMGetCSC + 1
+	#DEFINE		editArchivedProg	7
 	#DEFINE		isProtected			6
 	#DEFINE		GoUpDisplayed		5
 	#DEFINE		GoDownDisplayed		4
-	#DEFINE		editArchivedProg	3
 	#DEFINE		bugOccured			pixelShadow
 	#DEFINE		nbrLbls				pixelshadow2
 	#DEFINE		lastLblDisplayed	pixelshadow2+3
@@ -29,12 +29,12 @@ start:
 	ld hl,32
 	add hl,de
 	call _setHomescreenHook
-	ld de,161
-	add hl,de
-	call _setGetCSCHook
-	ld de,88
+	ld de,169
 	add hl,de
 	call _setMenuHook
+	ld de,140
+	add hl,de
+	call _setGetCSCHook
 
 	ld hl,AppVar
 	call _Mov9ToOP1
@@ -97,6 +97,7 @@ doesNotExist:
 	call _vputs
 
 Quit:
+	res editArchivedProg, (IY+asm_Flag3)
 	call _getkey
 	call _Clrtxtshd
 	call _clrlcdfull
