@@ -1,13 +1,7 @@
-LastArchivedProgramEdited:
+TempBuf:
 	.db 0,0,0,0,0,0,0,0,0
-beginHomescreenHook:
-	ld hl,0
-	ld de,$D052C6
-	ld bc,beginGetkeyHook - cpyInRAM + 1
-	ldir
-	jp $D052C6+4
 InPS2:
-	.org $D052C6
+	.org $D052C6+6000
 cpyInRAM:
 	.db progobj,"#",0,0
 
@@ -37,8 +31,10 @@ cpyInRAM:
 	cp a
 	ret
 progExists:
+	call _newline
 	call _ChkInRam
-	jp z,executesAsmProgram
+	jp z,executeRAMProgram
+	res archivedBasic, (iy+asm_Flag3)
 ArchivedProgram:
 	res isProtected, (iy+asm_Flag3)
 	ld a,(hl)
@@ -47,7 +43,19 @@ ArchivedProgram:
 	set isProtected, (iy+asm_Flag3)
 notProtected:
 	call _pushrealo1
-	call _ARC_UNARC
+	bit archivedBasic, (iy+asm_Flag3)
+	call z,_ARC_UNARC
+	call _CpyTo1FPST
+	call _pushrealo1
+	call _chkfindsym
+	push de
+	ld hl,AppVarName
+	call _Mov9ToOP1
+	call _chkfindsym
+	inc de
+	inc de
+	call _popreal
+	pop de
 
 	ex de,hl
 	ld bc,0
@@ -71,15 +79,20 @@ notProtected:
 	inc de
 	inc de
 	pop bc				; BC = program's size
+	ld hl,0
+	or a
+	sbc hl,bc
+	jr z,zeroByteProg
 	pop af				; AF = tAsm84CeCmp if assembly
 	pop hl				; HL = content
 	push bc
 	push af
 	ldir				; prgmTTEMP = content
-
+zeroByteProg:
 	call _poprealo1
-	call _pushrealo1
-	call _ARC_UNARC
+	call _op1ToOp5
+	bit archivedBasic, (iy+asm_Flag3)
+	call z,_ARC_UNARC
 
 	call _op4toOP1
 	pop af
@@ -89,14 +102,18 @@ notProtected:
 	cp tAsm84CeCmp
 	jr nz,executesArchivedBasicProgram
 	push bc
+	push hl
+	call _pushrealo5
+	pop hl
 	xor a
-	jr executesArchivedAsmProgram
+	jp executesArchivedAsmProgram
 
 QuitHook:
 	cp a
 	ret
 
 executesArchivedBasicProgram:
+	call prepareToExecuteSubprograms
 	ld hl,errorHandler
 	call _PushErrorHandler
 	set 0,(iy+3)
@@ -109,34 +126,145 @@ executesArchivedBasicProgram:
 	call _popErrorHandler
 	ld a,1
 deleteTemp:
-	push af
-	ld hl,TEMPname
-	call _Mov9ToOP1
-	call _chkfindsym
-	call nc,_DELVAR
-	pop af
+	call DeleteTemps
 	or a
 	ret nz
 
-	call _ClrLCDFull
-	ld a,(errNo)		; We remove the goTo option
-	and %01111111
-	ld (errNo),a
+	ld hl,AppVarName
+	call _Mov9ToOP1
+	call _chkfindsym
+	inc de
+	inc de
+	ex de,hl
+	call _pushreal
+	ld de,progExecuted
+	call _popreal
 	jp _JErrorNo
 
 errorHandler:
 	xor a
 	jr deleteTemp
 
+DeleteTemps:
+	push af
+	ld hl,TEMPname
+	call _Mov9ToOP1
+	call _chkfindsym
+	call nc,_DELVAR
 
-executesAsmProgram:
+	ld hl,StrTempProgName ; StrObj,'&',0,0
+	call _Mov9ToOP1
+	call _pushrealo1
+	call _chkfindsym
 	inc de
+	inc de
+	ex de,hl
+	call _Mov9ToOP1
+	ld a,(OP1+2)
+	ld b,a
+DeleteTempProgsLoop:
+	push bc
+	call _chkfindsym
+	call nc,_DELVAR
+	pop bc
+	ld hl,OP1+2
+	dec (hl)
+	djnz DeleteTempProgsLoop
+	call _poprealo1
+	call _chkfindsym
+	call nc,_DELVAR
+	pop af
+	ret
+
+prepareToExecuteSubprograms:
+	call _OP1ToOP5
+	call _chkfindsym
+	push de
+	ex de,hl
+	ld de,(hl)
+	inc de
+	inc de
+	ld (hl),de
+	ex de,hl
+	call _SetHLUto0
+	push hl
+	add hl,de
+	ld de,2
+	ex de,hl
+	call _InsertMEM
+	ex de,hl
+	ld (hl),tEnter		; it fixes a bug (wrong ERR:UNDEFINED)... I don't know why x)
+	inc hl
+	ld (hl),tEnter
+
+	pop bc
+	pop de
+	inc de
+	inc de
+transformPrgmTokenIntoArchiveToken:
+	ld a,(de)
+	cp tProg
+	jr nz,transformLoopSuit
+	ld a,tStop
+	ld (de),a
+transformLoopSuit:
+	cp t2ByteTok
+	jr nz,noAsmToken
+	inc de
+	ld a,(de)
+	dec de
+	cp tAsm
+	jr nz,noAsmToken
+	inc de
+	ld a,tEnter
+	ld (de),a
+	dec de
+	ld (de),a
+noAsmToken:
+	dec bc
+	inc de
+	ld a,c
+	or a
+	jr nz,transformPrgmTokenIntoArchiveToken
+	ld a,b
+	or a
+	jr nz,transformPrgmTokenIntoArchiveToken
+	ld hl,StrTempProgName ; StrObj,'&',0,0
+	call _Mov9ToOP1
+	call _chkfindsym
+	call nc,_DELVAR
+	ld hl,4
+	call _createStrng
+	ex de,hl
+	inc hl
+	inc hl
+	ld (hl),ProgObj
+	inc hl
+	ld (hl),'0'
+	inc hl
+	ld (hl),0
+	inc hl
+	ld (hl),0
+	call _OP5ToOP1
+	ret
+
+executeBasicRAMProgram:
+	pop ix
+	set archivedBasic, (iy+asm_Flag3)
+	jp ArchivedProgram
+
+executeRAMProgram:
 	inc de
 	inc de
 	ld a,(de)
+	cp tExtTok
+	jr nz,executeBasicRAMProgram
+	inc de
+	ld a,(de)
 	cp tAsm84CeCmp
+	jp nz,executeBasicRAMProgram
+	call _pushrealo1
 	pop hl
-	jr nz,QuitHook
 executesArchivedAsmProgram:
 	push af
 	push hl
@@ -204,19 +332,19 @@ AfterExecution:
 	ld a,progobj
 	ld (OP1),a
 	call _chkfindsym
- 	call nc,_DELVAR ; Delete RRESTORE
+ 	call nc,_DELVAR ; Delete 0RESTORE
  	
 	ld hl,BASICname
 	call _Mov9ToOp1
 	call _chkfindsym
- 	ld b,0
- 	call nc,_DELVAR ; Delete PPHASM
+ 	call nc,_DELVAR ; Delete 0PHASM
  	call _Clrtxtshd
 
  	pop af
  	or a
  	jr z,UpdateStatus
 
+ 	call _poprealo1
  	ld a,(bugOccured)
  	cp 1
  	ret nz
@@ -272,7 +400,7 @@ RESTOREcontent:
 	.db tExtTok,tAsm84CeCmp
 	ld bc,endHomescreenHook - cpyInRAM
 	ld hl,userMem-2 + BASICcontent - RESTOREcontent
-	ld de,$D052C6
+	ld de,$D052C6+6000
 	ldir
 	ret
 BASICcontent:
@@ -281,19 +409,18 @@ BASICname:
 	.db progobj,"PPHASM",0
 TEMPname:
 	.db progobj,"TTEMP",0
+StrTempProgName:
+	.db StrngObj,"&",0,0,0
+AppVarName:
+	.db AppVarObj,"PH",0
 
-
-beginGetkeyHook:
-	ld hl,0
-	ld de,$D052C6
-	ld bc,endHomescreenHook - cpyInRAMGetCSC + 1
-	ldir
-	jp $D052C6
 
 InGetCSC:
-	.org $D052C6
+	.org $D052C6+6000
 cpyInRAMGetCSC:
 	res shiftAlpha, (iy+shiftFlags)
+	xor a
+	ld (OP6+9),a
 
 	ld hl,(editCursor)
 	push hl
@@ -346,28 +473,28 @@ loop:
 	ld bc,(pencol)
 	call _VPutMap			; Displaying of the cursor
 	ld (pencol),bc
-	call _getkey			; we're waiting for a key
-	cp kClear
+	call _getcsc			; we're waiting for a key
+	cp skClear
 	jp z,restoreEditor
 
 	ld hl,(pencol)
 	ld bc,60
-	cp kLeft
+	cp skLeft
 	jp z,CurLeft
-	cp kRight
+	cp skRight
 	jp z,CurRight
 horizontal:
 	ld (pencol),hl
 
 	ld hl,(penrow)
 	ld bc,20
-	cp kUp
+	cp skUp
 	jp z,CurUp
-	cp kDown
+	cp skDown
 	jp z,CurDown
 vertical:
 	ld (penrow),hl
-	cp kEnter
+	cp skEnter
 	jr nz,loop
 
 	call _clrlcdfull
@@ -377,7 +504,7 @@ vertical:
 	ld (currow),a
 	ld hl,TEXTProgram
 	call _puts
-	ld hl,OP1+2
+	ld hl,OP6+1
 	call _puts
 	
 	call _bufToTop		; The routine will jump to the (HL) Lbl
@@ -413,13 +540,23 @@ checkGoDown:
 	ld b,9
 updateScreen2:
 	call _BufLeft
+	jr z,BeginingProg
 	ld a,e
 	cp tEnter
 	jr nz,updateScreen2
 	djnz updateScreen2
+dispTailNQuit:
 	call _dispTail
 	xor a
 	ret
+
+BeginingProg:
+	call _newline
+	ld a,':'
+	call _PutMap
+	ld a,1
+	ld (curcol),a
+	jr dispTailNQuit
 
 jumpToTheLblSelected:
 	push hl
@@ -499,7 +636,7 @@ restoreEditor:
 	ld (currow),a
 	ld hl,TEXTProgram
 	call _puts
-	ld hl,OP1+2
+	ld hl,OP6+1
 	call _puts
 	jp updateScreen-2
 

@@ -11,6 +11,11 @@ beginMenuHook:
 	cp mProgramHome
 	ld a,$FF
 	jr z,bridgeJR
+
+	ld a,b
+	cp 33
+	ld a,$FF
+	jr z,bridgeJR
 	pop hl
 	pop af
 
@@ -31,7 +36,20 @@ notFirstEvent:
 	push de
 	call _releaseBuffer
 	call _PPutAway
+	call _zeroop1
+	ld a,AppVarObj
+	ld (OP1),a
+	ld a,'P'
+	ld (OP1+1),a
+	ld a,'H'
+	ld (OP1+2),a
+	call _chkfindsym
+	jr c,AppVarIssue
+	call _chkInRam
+	jr nz,AppVarIssue
+	ex de,hl
 	pop de
+	push hl
 
 	ld hl,-9
 	add hl,de
@@ -41,18 +59,12 @@ notFirstEvent:
 	call _Op1ToOp6
 	call _chkfindsym
 	call _chkInRam
+	pop ix
 	jr z,InRam
+	push ix
 
 	call _ARC_UNARC
-	call _zeroop1
-	ld a,AppVarObj
-	ld (OP1),a
-	ld a,'P'
-	ld (OP1+1),a
-	ld a,'H'
-	ld (OP1+2),a
-	call _chkfindsym
-	jp c,_ErrUndefined
+	pop de
 	inc de
 	inc de
 	ld hl,OP6
@@ -65,5 +77,10 @@ InRam:
 quitMenuHook:
 	cp a
 	ret
+
+AppVarIssue:
+	pop de
+	pop bc
+	jr quitMenuHook
 endMenuHook:
 .end

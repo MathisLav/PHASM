@@ -69,18 +69,10 @@ noProgramToArchive:
 	jr nz,ErrorMissing
 	ld hl,11
 	add hl,de
-	push hl
-	inc hl
-	push hl
-	ld de,17
-	add hl,de
-	ld (pixelShadow),hl
-	
-	ld hl,pixelShadow
-	ld bc,3
-	pop de
+	ld de,$D052C6+6000
+	ld bc,AppvarSize
 	ldir
-	pop hl
+	ld hl,$D052C6+6004
 	jp (hl)
 
 

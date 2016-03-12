@@ -1,0 +1,231 @@
+beginParserHook:
+	.db 83h
+	or a
+	ret z
+	push bc
+	push af
+	push de
+	push hl
+	ld hl,(curPC)
+	ld a,(hl)
+	cp tStop
+	jr z,stopDetected
+	pop hl
+	pop de
+	pop af
+	pop bc
+	cp a
+	ret
+
+stopDetected:
+	inc hl
+	ld a,(hl)
+	cp tEnter
+	jr z,normalStop
+	cp tColon
+	jr nz,unusualUseDetected
+
+normalStop:
+	pop hl
+	pop de
+	pop af
+	pop bc
+	cp a
+	ret
+
+unusualUseDetected:
+	dec hl
+	call _Mov9ToOP1
+	ld a,tEnter
+	ld (OP1+9),a
+	ld a,ProgObj
+	ld (OP1),a
+	ld hl,OP1+1
+	ld de,0
+delimitNameProgLoop:
+	inc de
+	inc hl
+	ld a,(hl)
+	cp tEnter
+	jr z,delimitNameProgEnd
+	cp tColon
+	jr nz,delimitNameProgLoop
+delimitNameProgEnd:
+	push de
+	ld (hl),0
+	call _op1toop5
+	call _zeroop1
+	ld a,AppVarObj
+	ld (OP1),a
+	ld a,'P'
+	ld (OP1+1),a
+	ld a,'H'
+	ld (OP1+2),a
+	call _chkfindsym
+	jp c,_ErrSyntax
+	call _chkInRam
+	jp c,_ErrSyntax
+	inc de
+	inc de
+	push de
+	ex de,hl
+	call _pushreal
+	call _pushrealo5
+	call _pushrealo5
+	pop de
+	call _popreal
+	call _CpyTo1FPST
+	call _ChkFindSym
+	jp c,_ErrUndefined
+	call _chkInRam
+	push af
+	call nz,_ARC_UNARC
+	push de
+
+	call _zeroop1
+	ld hl,OP1
+	ld (hl),StrngObj
+	inc hl
+	ld (hl),'&'
+	call _chkfindsym
+	inc de
+	inc de
+	push de
+	inc de
+	inc de
+	ex de,hl
+	inc (hl)
+	pop hl
+	call _Mov9ToOP1
+
+	pop de
+	ld hl,0
+	ld a,(de)
+	ld l,a
+	inc de
+	ld a,(de)
+	ld h,a
+	inc de
+	push hl
+	push hl
+	push de
+	inc hl
+	inc hl
+	call _createprog
+	inc de
+	inc de
+	pop hl
+	pop bc
+	inc bc
+	ldir
+	ex de,hl
+	ld (hl),tEnter		; it fixes a bug (wrong ERR:UNDEFINED)... I don't know why x)
+	dec hl
+	ld (hl),tEnter
+
+	call _poprealo1
+	call _pushrealo4
+	pop hl
+	pop af
+	push hl
+	call nz,_ARC_UNARC
+	call _CpyTo1FPST
+	call _ChkFindSym
+	inc de
+	inc de
+	pop bc
+	ld a,(de)
+	cp tExtTok
+	jr nz,transformPrgmTokenIntoArchiveToken
+	inc de
+	ld a,(de)
+	dec de
+	cp tAsm84CeCmp
+	jr z,executeAsmSbPrgm
+transformPrgmTokenIntoArchiveToken:
+	ld a,(de)
+	cp tProg
+	jr nz,transformLoopSuit
+	ld a,tStop
+	ld (de),a
+transformLoopSuit:
+	cp t2ByteTok
+	jr nz,noAsmToken
+	inc de
+	ld a,(de)
+	dec de
+	cp tAsm
+	jr nz,noAsmToken
+	inc de
+	ld a,tEnter
+	ld (de),a
+	dec de
+	ld (de),a
+noAsmToken:
+	dec bc
+	inc de
+	ld a,c
+	or a
+	jr nz,transformPrgmTokenIntoArchiveToken
+	ld a,b
+	or a
+	jr nz,transformPrgmTokenIntoArchiveToken
+
+	call _poprealo1
+	call _parseInp
+
+	call _zeroop1
+	ld a,AppVarObj
+	ld (OP1),a
+	ld a,'P'
+	ld (OP1+1),a
+	ld a,'H'
+	ld (OP1+2),a
+	call _ChkFindSym
+	jp c,_ErrUndefined
+	inc de
+	inc de
+	call _popreal
+
+	ld hl,(curPC)
+	pop de
+	add hl,de
+	ld (curPC),hl
+
+	pop hl
+	pop de
+	pop af
+	pop bc
+	or 1
+	ret
+
+executeAsmSbPrgm:
+	; When we jump there :
+	; OP1 = name Prog
+	; DE = ADDR Prog
+	; BC = Size Prog
+	; HL = VAT Entry
+	call _executePrgm
+	call _poprealo1
+	call _poprealo1
+
+	ld hl,(curPC)
+	pop de
+	add hl,de
+	ld (curPC),hl
+
+	pop hl
+	pop de
+	pop af
+	pop bc
+	or 1
+	ret
+
+quitParserHook:
+	pop hl
+	pop de
+	pop af
+	pop bc
+	cp a
+	ret
+endParserHook:

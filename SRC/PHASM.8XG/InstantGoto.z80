@@ -6,18 +6,14 @@ beginGetkeyHook:
 	.db 83h				; All hooks begin with .db 83h
 	cp 1Bh				; we check if the OS called the hook because a key has been pressed
 	ret nz
+
 	ld a,b				; A = key
-	
 	cp skGraphvar
 	ret nz
-	
-	bit shiftAlpha, (iy+shiftFlags)
-	jr nz,alphaPressed
-	ld a,skGraphvar
-	and a
-	ret
 
 alphaPressed:
+	bit shiftAlpha, (iy+shiftFlags)
+	jr z,quitGKHook+4
 	call _pushrealo1	; Saving the name of the program edited
 	call _zeroop1
 	ld a,AppVarObj		; We obtain the address of the code (in PH AppVar)
@@ -29,22 +25,22 @@ alphaPressed:
 	call _ChkFindSym
 	jr c,quitGKHook
 	call _chkinram
-	ret nz
-	ld hl,sizeHomeScreenHook + 2	; We go after Homescreen Hook
+	jr nz,quitGKHook
+	ld hl,sizeHomeScreenHook + 2	; addr after Homescreen Hook (2 = size bytes)
 	add hl,de
 	push hl
-	ld de,18			; See AppVar.z80 at label "beginGetkeyHook" : we store the address which points after the "code which copies the code"
-	add hl,de
-	ld (pixelShadow),hl
 	call _poprealo1
-
-	pop de				; DE = Address of "[ld] HL,0"
-	push de
-	inc de
-	ld hl,pixelShadow	; (HL) = address of the code after the "code which copies the code" (nice sentence)
-	ld bc,3				; BC = 3 Bytes
+	pop hl
+	
+	ld de,$D052C6+6000
+	ld bc,AppvarSize - sizeHomeScreenHook + 1
 	ldir
-	pop hl				; HL = address of the "code which copies the code"
+	ld hl,$D052C6+6000
 	jp (hl)
 
+quitGKHook:
+	call _poprealo1
+	ld a,skGraphvar
+	and a
+	ret
 endGetkeyHook:

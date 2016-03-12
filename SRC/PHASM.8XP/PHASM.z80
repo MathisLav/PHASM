@@ -3,15 +3,18 @@
 	#macro bcall(x)
 		call x
 	#endmacro
-	#DEFINE		AppVarSize			InPS2 - LastArchivedProgramEdited + InGetCSC - cpyInRAM + endHomescreenHook - cpyInRAMGetCSC + 1
-	#DEFINE		editArchivedProg	7
-	#DEFINE		isProtected			6
-	#DEFINE		GoUpDisplayed		5
-	#DEFINE		GoDownDisplayed		4
+	#DEFINE		AppVarSize			InPS2 - TempBuf + InGetCSC - cpyInRAM + endHomescreenHook - cpyInRAMGetCSC + 1
+	#DEFINE		editArchivedProg	7	; flag
+	#DEFINE		isProtected			6	; flag
+	#DEFINE		GoUpDisplayed		5	; flag
+	#DEFINE		GoDownDisplayed		4	; flag
+	#DEFINE		archivedBasic		3	; flag
 	#DEFINE		bugOccured			pixelShadow
 	#DEFINE		nbrLbls				pixelshadow2
 	#DEFINE		lastLblDisplayed	pixelshadow2+3
 	#DEFINE		mn					pixelshadow2+6		; used as register
+	#DEFINE		nbrPrgmUnarc		pixelshadow2+9
+	#DEFINE		progExecuted		0D0230Eh
 .list
 	.org userMem-2
 	.db tExtTok,tAsm84CeCmp
@@ -29,34 +32,32 @@ start:
 	ld hl,32
 	add hl,de
 	call _setHomescreenHook
-	ld de,169
+	ld de,159
 	add hl,de
 	call _setMenuHook
-	ld de,140
+	ld de,162
 	add hl,de
 	call _setGetCSCHook
+	ld de,86
+	add hl,de
+	call _setParserHook
 
 	ld hl,AppVar
 	call _Mov9ToOP1
 	call _chkfindsym
-	call nc,_DELVAR
+	call nc,_DELVARARC
 	ld hl,AppVarSize
 	push hl
 	call _createAppVar
 	inc de
 	inc de
-	ld hl,LastArchivedProgramEdited
+	ld hl,TempBuf
 	pop bc
 	ldir
 	
 	ld hl,installed
 	ld a,3
 	ld (curcol),a
-	ld (currow),a
-	call _puts
-	ld a,10
-	ld (curcol),a
-	ld a,5
 	ld (currow),a
 	call _puts
 	jr Quit
@@ -66,16 +67,16 @@ uninstallPHASM:
 	res homescreenHookActive, (IY+hookFlags2)
 	res getCSCHookActive, (IY+hookFlags2)
 	res MenuHookActive, (IY+hookFlags2)
+	res ParserHookActive, (IY+hookFlags2)
 
 	ld hl,AppVar
 	call _Mov9ToOP1
 	call _chkfindsym
-	call nc,_DELVAR
+	call nc,_DELVARARC
 
 	ld hl,uninstalled
-	ld a,2
+	ld a,3
 	ld (curcol),a
-	inc a
 	ld (currow),a
 	call _puts
 	jr Quit
@@ -83,18 +84,28 @@ uninstallPHASM:
 
 doesNotExist:
 	ld hl,doesNotExistText
-	ld a,17
-	ld (pencol),a
-	ld a,50
-	ld (penrow),a
-	call _vputs
+	ld a,4
+	ld (curcol),a
+	ld a,1
+	ld (currow),a
+	call _puts
+	ld a,9
+	ld (curcol),a
+	ld a,2
+	ld (currow),a
+	call _puts
 	push hl
-	ld hl,10
-	ld (pencol),hl
-	ld a,70
-	ld (penrow),a
+	ld hl,2
+	ld (curcol),hl
+	ld a,5
+	ld (currow),a
 	pop hl
-	call _vputs
+	call _puts
+	ld a,2
+	ld (curcol),a
+	ld a,6
+	ld (currow),a
+	call _puts
 
 Quit:
 	res editArchivedProg, (IY+asm_Flag3)
@@ -109,15 +120,15 @@ Group:
 AppVar:
 	.db AppVarObj,"PH",0
 doesNotExistText:
-	.db "Vous devez transferer le Group PHASM.",0
-	.db "Veuillez le mettre, puis re-executer PHASM.",0
+	.db "The PHASM Group is",0,"missing.",0
+	.db "Please transfer it and",0,"run this program again.",0
 installed:
-	.db "PHASM est maintenant",0,"actif !",0
+	.db "PHASM is now online!",0
 uninstalled:
-	.db "PHASM n'est plus actif",0
+	.db "PHASM is now offline.",0
 
 
 #include "AppVar.z80"
-.echo InPS2 - LastArchivedProgramEdited + beginGetkeyHook - cpyInRAM
+.echo InPS2 - TempBuf + InGetCSC - cpyInRAM
 .echo AppVarSize
 .end
