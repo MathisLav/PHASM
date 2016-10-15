@@ -84,9 +84,10 @@ delimitNameProgEnd:
 
 	call _zeroop1
 	ld hl,OP1
-	ld (hl),StrngObj
+	ld (hl),TempProgObj
 	inc hl
-	ld (hl),'&'
+	ld de,$525453 ; STR
+	ld (hl),de
 	call _chkfindsym
 	inc de
 	inc de
@@ -111,7 +112,8 @@ delimitNameProgEnd:
 	push de
 	inc hl
 	inc hl
-	call _createprog
+	ld a,TempProgObj
+	call _createVar
 	inc de
 	inc de
 	pop hl
@@ -141,7 +143,7 @@ delimitNameProgEnd:
 	ld a,(de)
 	dec de
 	cp tAsm84CeCmp
-	jr z,executeAsmSbPrgm
+	jr z,bridgeASMProg
 transformPrgmTokenIntoArchiveToken:
 	ld a,(de)
 	cp tProg
@@ -171,8 +173,32 @@ noAsmToken:
 	or a
 	jr nz,transformPrgmTokenIntoArchiveToken
 
+	jr afterASMBridge
+bridgeASMProg:
+	jr executeAsmSbPrgm
+afterASMBridge:
+
 	call _poprealo1
 	call _parseInp
+
+	call _zeroop1
+	ld hl,OP1
+	ld (hl),TempProgObj
+	inc hl
+	ld de,$525453 ; STR
+	ld (hl),de
+	call _chkfindsym
+	inc de
+	inc de
+	push de
+	ex de,hl
+	call _Mov9ToOP1
+	call _chkfindsym
+	call nc,_DELVAR
+	pop hl
+	inc hl
+	inc hl
+	dec (hl)
 
 	call _zeroop1
 	ld a,AppVarObj
@@ -200,14 +226,43 @@ noAsmToken:
 	ret
 
 executeAsmSbPrgm:
-	; When we jump there :
+	; When we jump here :
 	; OP1 = name Prog
 	; DE = ADDR Prog
 	; BC = Size Prog
 	; HL = VAT Entry
 	call _executePrgm
+	
 	call _poprealo1
-	call _poprealo1
+	call _chkfindsym
+	call nc,_DELVAR
+
+	call _zeroop1
+	ld a,AppVarObj
+	ld (OP1),a
+	ld a,'P'
+	ld (OP1+1),a
+	ld a,'H'
+	ld (OP1+2),a
+	call _ChkFindSym
+	jp c,_ErrUndefined
+	inc de
+	inc de
+	call _popreal
+
+	call _zeroop1
+	ld hl,OP1
+	ld (hl),TempProgObj
+	inc hl
+	ld de,$525453 ; STR
+	ld (hl),de
+	call _chkfindsym
+	inc de
+	inc de
+	ex de,hl
+	inc hl
+	inc hl
+	dec (hl)
 
 	ld hl,(curPC)
 	pop de
@@ -219,13 +274,5 @@ executeAsmSbPrgm:
 	pop af
 	pop bc
 	or 1
-	ret
-
-quitParserHook:
-	pop hl
-	pop de
-	pop af
-	pop bc
-	cp a
 	ret
 endParserHook:

@@ -1,10 +1,11 @@
 .nolist
-	#include "ti83pce.inc"
+	#include "ti84pce.inc"
 	#macro bcall(x)
 		call x
 	#endmacro
-	#DEFINE		sizeHomeScreenHook		943
-	#DEFINE		AppvarSize				2124
+	#DEFINE		sizeHomeScreenHook		853
+	#DEFINE		sizeInstantGoto			1214
+	#DEFINE		AppvarSize				4158
 	#DEFINE		editArchivedProgFlag	7
 .list
 	

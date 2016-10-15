@@ -1,9 +1,9 @@
 .nolist
-	#include "ti83pce.inc"
+	#include "ti84pce.inc"
 	#macro bcall(x)
 		call x
 	#endmacro
-	#DEFINE		AppVarSize			InPS2 - TempBuf + InGetCSC - cpyInRAM + endHomescreenHook - cpyInRAMGetCSC + 1
+	#DEFINE		AppVarSize			InPS2-TempBuf + InGetCSC-cpyInRAM + endInstantGoto-cpyInRAMGetCSC + endMemoryEditor-menuAppVar
 	#DEFINE		editArchivedProg	7	; flag
 	#DEFINE		isProtected			6	; flag
 	#DEFINE		GoUpDisplayed		5	; flag
@@ -14,31 +14,42 @@
 	#DEFINE		lastLblDisplayed	pixelshadow2+3
 	#DEFINE		mn					pixelshadow2+6		; used as register
 	#DEFINE		nbrPrgmUnarc		pixelshadow2+9
-	#DEFINE		progExecuted		0D0230Eh
+	; Memory Editor Feature
+	#DEFINE		nbrAVIgnore			pixelshadow2	; MENU : displays AppVars from (nbrAVIgnore) to (nbrAVIgnore)+9
+	#DEFINE		namesBuf			pixelshadow2+1	; MENU : stores AV names
+	#DEFINE		cursorDataX			pixelshadow2	; EDIT : Horiz Pos of cursor [0-3]
+	#DEFINE		cursorDataY			pixelshadow2+1	; EDIT : Verti Pos of cursor [0-6]
+	#DEFINE		fstElWin			pixelshadow2+3	; MENU+EDIT : current address in the editor (First Element in Window)
+	; Flags of Memory Editor Feature
+	#DEFINE		baseADDR			2				; AppVar = 0 / raw addr = 1 
+	#DEFINE		emptyMenu			1				; menu does not contain any Appvar = 1
+	#DEFINE		secNibble			2				; edting MSB of (fstElWin) = 1 / edting LSB of (fstElWin) = 0
+	#DEFINE		archivedAV			1				; AV that's being edited is located in Archive
+	#DEFINE		isTi84CE			3				; The calculator is a TI-84+CE = 1 / The calculator is a TI-83PCE = 0
 .list
 	.org userMem-2
 	.db tExtTok,tAsm84CeCmp
 
-start:
 	call _clrlcdfull
 	bit homescreenHookActive, (IY+hookFlags2)
-	jr nz,uninstallPHASM
+	jp nz,uninstallPHASM
 	res editArchivedProg, (IY+asm_Flag3)
 
 	ld hl,Group
 	call _mov9ToOp1
 	call _chkfindsym
+	
 	jp c,doesNotExist
 	ld hl,32
 	add hl,de
 	call _setHomescreenHook
-	ld de,159
+	ld de,200
 	add hl,de
 	call _setMenuHook
 	ld de,162
 	add hl,de
 	call _setGetCSCHook
-	ld de,86
+	ld de,103
 	add hl,de
 	call _setParserHook
 
@@ -55,12 +66,19 @@ start:
 	pop bc
 	ldir
 	
+	ld hl,(localLanguage)
+	ld de,$02010C ; if French
+	or a
+	sbc hl,de
 	ld hl,installed
+	jr nz,INSisEN
+	ld hl,installedFR
+INSisEN:
 	ld a,3
 	ld (curcol),a
 	ld (currow),a
 	call _puts
-	jr Quit
+	jp Quit
 
 
 uninstallPHASM:
@@ -74,7 +92,14 @@ uninstallPHASM:
 	call _chkfindsym
 	call nc,_DELVARARC
 
+	ld hl,(localLanguage)
+	ld de,$02010C ; if French
+	or a
+	sbc hl,de
 	ld hl,uninstalled
+	jr nz,UNisEN
+	ld hl,uninstalledFR
+UNisEN:
 	ld a,3
 	ld (curcol),a
 	ld (currow),a
@@ -83,13 +108,20 @@ uninstallPHASM:
 
 
 doesNotExist:
+	ld hl,(localLanguage)
+	ld de,$02010C ; if French
+	or a
+	sbc hl,de
 	ld hl,doesNotExistText
+	jr nz,MISisEN
+	ld hl,nexistePas
+MISisEN:
 	ld a,4
 	ld (curcol),a
 	ld a,1
 	ld (currow),a
 	call _puts
-	ld a,9
+	ld a,6
 	ld (curcol),a
 	ld a,2
 	ld (currow),a
@@ -120,15 +152,23 @@ Group:
 AppVar:
 	.db AppVarObj,"PH",0
 doesNotExistText:
-	.db "The PHASM Group is",0,"missing.",0
+	.db "The PHASM Group is",0,"   missing.",0
 	.db "Please transfer it and",0,"run this program again.",0
+nexistePas:
+	.db "  Le Groupe PHASM",0,"n'existe pas...",0
+	.db "Veuillez le transf",LeAcute,"rer",0," et re-ex",LeAcute,"cuter PHASM",0
 installed:
 	.db "PHASM is now online!",0
 uninstalled:
 	.db "PHASM is now offline.",0
+installedFR:
+	.db "PHASM a ",LeAcute,"t",LeAcute," activ",LeAcute," !",0
+uninstalledFR:
+	.db "PHASM a ",LeAcute,"t",LeAcute," d",LeAcute,"sactiv",LeAcute,0
 
 
 #include "AppVar.z80"
 .echo InPS2 - TempBuf + InGetCSC - cpyInRAM
+.echo endInstantGoto-cpyInRAMGetCSC
 .echo AppVarSize
 .end

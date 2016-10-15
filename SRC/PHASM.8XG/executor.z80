@@ -1,7 +1,22 @@
 ; See InstantGoto for the comments : we do the same thing
 beginHomescreenHook:
 	.db 83h
-	bit editArchivedProgFlag, (IY+asm_Flag3)
+	bit parserHookActive, (iy+hookflags4)
+	jr nz,parserActive
+	; If another program has removed the parserHook...
+	call _zeroop1
+	ld a,AppVarObj		; We want the address of the code (in PH AppVar)
+	ld (OP1),a
+	ld a,'P'
+	ld (OP1+1),a
+	ld a,'H'
+	ld (OP1+2),a
+	call _ChkFindSym
+	ld de,endHSHook-beginHomescreenHook + endMenuHook-beginMenuHook + endGetkeyHook-beginGetkeyHook + 2
+	add hl,de
+	call _setParserHook
+parserActive:
+	bit editArchivedProgFlag, (iy+asm_Flag3)
 	jr z,noProgramToArchive
 
 
@@ -13,7 +28,7 @@ ArchiveEditedProgram:
 
 	res editArchivedProgFlag, (IY+asm_Flag3)
 	call _zeroop1
-	ld a,AppVarObj		; We obtain the address of the code (in PH AppVar)
+	ld a,AppVarObj		; We want the address of the code (in PH AppVar)
 	ld (OP1),a
 	ld a,'P'
 	ld (OP1+1),a
@@ -69,10 +84,10 @@ noProgramToArchive:
 	jr nz,ErrorMissing
 	ld hl,11
 	add hl,de
-	ld de,$D052C6+6000
+	ld de,$D052C6+4000
 	ld bc,AppvarSize
 	ldir
-	ld hl,$D052C6+6004
+	ld hl,$D052C6+4004
 	jp (hl)
 
 

@@ -8,13 +8,24 @@ beginGetkeyHook:
 	ret nz
 
 	ld a,b				; A = key
+	cp skVars
+	jr nz,notVarsKey
+	ld hl,sizeHomeScreenHook+sizeInstantGoto + 2
+	ld bc,AppvarSize-sizeHomeScreenHook-sizeInstantGoto 
+	jr jumpToAppVar
+notVarsKey:
 	cp skGraphvar
 	ret nz
+	ld hl,sizeHomeScreenHook + 2	; addr after Homescreen Hook (2 = size bytes)
+	ld bc,sizeInstantGoto 
 
-alphaPressed:
+jumpToAppVar:
 	bit shiftAlpha, (iy+shiftFlags)
-	jr z,quitGKHook+4
-	call _pushrealo1	; Saving the name of the program edited
+	jr z,quitGKHook+1
+	res shiftAlpha, (iy+shiftFlags)
+	push bc
+	push hl
+	call _op1ToOp5	; Saving the name of the program edited (for Instant Goto)
 	call _zeroop1
 	ld a,AppVarObj		; We obtain the address of the code (in PH AppVar)
 	ld (OP1),a
@@ -23,24 +34,23 @@ alphaPressed:
 	ld a,'H'
 	ld (OP1+2),a
 	call _ChkFindSym
+	pop hl
 	jr c,quitGKHook
 	call _chkinram
 	jr nz,quitGKHook
-	ld hl,sizeHomeScreenHook + 2	; addr after Homescreen Hook (2 = size bytes)
 	add hl,de
 	push hl
-	call _poprealo1
+	call _op5toOp1
+
 	pop hl
-	
-	ld de,$D052C6+6000
-	ld bc,AppvarSize - sizeHomeScreenHook + 1
+	ld de,$D052C6+4000
+	pop bc
 	ldir
-	ld hl,$D052C6+6000
+	ld hl,$D052C6+4000
 	jp (hl)
 
 quitGKHook:
-	call _poprealo1
-	ld a,skGraphvar
+	pop bc
 	and a
 	ret
 endGetkeyHook:

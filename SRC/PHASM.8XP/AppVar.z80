@@ -1,7 +1,7 @@
 TempBuf:
 	.db 0,0,0,0,0,0,0,0,0
 InPS2:
-	.org $D052C6+6000
+	.org $D052C6+4000
 cpyInRAM:
 	.db progobj,"#",0,0
 
@@ -31,7 +31,6 @@ cpyInRAM:
 	cp a
 	ret
 progExists:
-	call _newline
 	call _ChkInRam
 	jp z,executeRAMProgram
 	res archivedBasic, (iy+asm_Flag3)
@@ -75,7 +74,8 @@ notProtected:
 	call nc,_DELVAR
 	pop hl				; HL = program's size
 	push hl
-	call _createprog
+	ld a,TempProgObj
+	call _createVar
 	inc de
 	inc de
 	pop bc				; BC = program's size
@@ -126,7 +126,10 @@ executesArchivedBasicProgram:
 	call _popErrorHandler
 	ld a,1
 deleteTemp:
-	call DeleteTemps
+	res 6,(iy+33h)
+	push af
+	call _DeleteTempPrograms
+	pop af
 	or a
 	ret nz
 
@@ -135,46 +138,24 @@ deleteTemp:
 	call _chkfindsym
 	inc de
 	inc de
+	push de
 	ex de,hl
-	call _pushreal
-	ld de,progExecuted
-	call _popreal
+	ld de,basic_prog
+	call _Mov9b
+	pop hl
+	call _Mov9ToOP1
+	call _chkfindsym
+	call _ChkInRam
+	jp z,_JErrorNo
+
+	call _ARC_UNARC
+	set editArchivedProg, (iy+asm_Flag3)
 	jp _JErrorNo
 
 errorHandler:
 	xor a
 	jr deleteTemp
 
-DeleteTemps:
-	push af
-	ld hl,TEMPname
-	call _Mov9ToOP1
-	call _chkfindsym
-	call nc,_DELVAR
-
-	ld hl,StrTempProgName ; StrObj,'&',0,0
-	call _Mov9ToOP1
-	call _pushrealo1
-	call _chkfindsym
-	inc de
-	inc de
-	ex de,hl
-	call _Mov9ToOP1
-	ld a,(OP1+2)
-	ld b,a
-DeleteTempProgsLoop:
-	push bc
-	call _chkfindsym
-	call nc,_DELVAR
-	pop bc
-	ld hl,OP1+2
-	dec (hl)
-	djnz DeleteTempProgsLoop
-	call _poprealo1
-	call _chkfindsym
-	call nc,_DELVAR
-	pop af
-	ret
 
 prepareToExecuteSubprograms:
 	call _OP1ToOP5
@@ -216,7 +197,7 @@ transformLoopSuit:
 	cp tAsm
 	jr nz,noAsmToken
 	inc de
-	ld a,tEnter
+	ld a,tColon
 	ld (de),a
 	dec de
 	ld (de),a
@@ -229,18 +210,19 @@ noAsmToken:
 	ld a,b
 	or a
 	jr nz,transformPrgmTokenIntoArchiveToken
-	ld hl,StrTempProgName ; StrObj,'&',0,0
+	ld hl,TempProgName
 	call _Mov9ToOP1
 	call _chkfindsym
 	call nc,_DELVAR
 	ld hl,4
-	call _createStrng
+	ld a,TempProgObj
+	call _createVar
 	ex de,hl
 	inc hl
 	inc hl
-	ld (hl),ProgObj
+	ld (hl),TempProgObj
 	inc hl
-	ld (hl),'0'
+	ld (hl),'T' ; Temp progs begin with T
 	inc hl
 	ld (hl),0
 	inc hl
@@ -274,7 +256,7 @@ executesArchivedAsmProgram:
 	
 	ld hl,BASICname
 	call _Mov9ToOP1
-	ld a,progobj
+	ld a,TempProgObj
 	ld (OP1),a
 	call _chkfindsym
 	call nc,_DELVAR
@@ -282,7 +264,8 @@ executesArchivedAsmProgram:
 	push bc
 	ld hl,14
 	add hl,bc
-	call _createprog
+	ld a,TempProgObj
+	call _createVar
 	inc de
 	inc de
 	ld hl,BASICcontent
@@ -300,15 +283,16 @@ executesArchivedAsmProgram:
 	call _Mov9ToOP1
 	call _chkfindsym
 	call nc,_DELVAR
-	ld hl,endHomescreenHook - cpyInRAM + BASICcontent - RESTOREcontent
-	call _createprog
+	ld hl,endHomescreenHook-cpyInRAM + BASICcontent-RESTOREcontent
+	ld a,TempProgObj
+	call _createVar
 	inc de
 	inc de
 	ld hl,RESTOREcontent
-	ld bc,BASICcontent - RESTOREcontent
+	ld bc,BASICcontent-RESTOREcontent
 	ldir
 	ld hl,cpyInRAM
-	ld bc,endHomescreenHook - cpyInRAM
+	ld bc,endHomescreenHook-cpyInRAM
 	ldir
 
 	call _poprealo1
@@ -327,23 +311,12 @@ executesArchivedAsmProgram:
 	
 AfterExecution:
 	res editArchivedProg, (IY+asm_Flag3)
-	ld hl,BASICcontent+5
-	call _Mov9ToOP1
-	ld a,progobj
-	ld (OP1),a
-	call _chkfindsym
- 	call nc,_DELVAR ; Delete 0RESTORE
- 	
-	ld hl,BASICname
-	call _Mov9ToOp1
-	call _chkfindsym
- 	call nc,_DELVAR ; Delete 0PHASM
  	call _Clrtxtshd
-
  	pop af
  	or a
  	jr z,UpdateStatus
 
+ 	call _DeleteTempPrograms
  	call _poprealo1
  	ld a,(bugOccured)
  	cp 1
@@ -377,11 +350,7 @@ suitProtectedProgram:
 	call _op4toOP1
 	call _ARC_UNARC
 
-	ld hl,TEMPname
-	call _Mov9ToOP1
-	call _chkfindsym
-	call nc,_DELVAR
-
+	call _DeleteTempPrograms
 	ld a,(bugOccured)
  	cp 1
  	ret nz
@@ -400,28 +369,24 @@ RESTOREcontent:
 	.db tExtTok,tAsm84CeCmp
 	ld bc,endHomescreenHook - cpyInRAM
 	ld hl,userMem-2 + BASICcontent - RESTOREcontent
-	ld de,$D052C6+6000
+	ld de,$D052C6+4000
 	ldir
 	ret
 BASICcontent:
 	.db $BB,$6A,tenter,$BB,$6A,tProg,"RRESTORE"
 BASICname:
-	.db progobj,"PPHASM",0
+	.db TempProgObj,"PPHASM",0
 TEMPname:
-	.db progobj,"TTEMP",0
-StrTempProgName:
-	.db StrngObj,"&",0,0,0
+	.db TempProgObj,"TTEMP",0
+TempProgName:
+	.db TempProgObj,"STR",0
 AppVarName:
 	.db AppVarObj,"PH",0
 
 
 InGetCSC:
-	.org $D052C6+6000
+	.org $D052C6+4000
 cpyInRAMGetCSC:
-	res shiftAlpha, (iy+shiftFlags)
-	xor a
-	ld (OP6+9),a
-
 	ld hl,(editCursor)
 	push hl
 	ld hl,(editTail)
@@ -504,7 +469,7 @@ vertical:
 	ld (currow),a
 	ld hl,TEXTProgram
 	call _puts
-	ld hl,OP6+1
+	ld hl,progToEdit
 	call _puts
 	
 	call _bufToTop		; The routine will jump to the (HL) Lbl
@@ -636,12 +601,12 @@ restoreEditor:
 	ld (currow),a
 	ld hl,TEXTProgram
 	call _puts
-	ld hl,OP6+1
+	ld hl,progToEdit
 	call _puts
 	jp updateScreen-2
 
 CurLeft:
-	call erasePrint	; Erasing of the cursor
+	call erasePrint	; Erasing the cursor
 
 	pop de			; DE = number of the Lbl ahead the cursor
 	push de
@@ -653,9 +618,16 @@ CurLeft:
 	sbc hl,de
 	ex de,hl
 	pop hl
-	jp m,loop
-	jp z,loop
-	
+	jp p,LEFT_suit
+	;pop de			; If we are pressing the right key as we are on first column, then, reset cursor at first Lbl (commented)
+	;ld de,1
+	;push de
+	;ld a,40
+	;ld (penrow),a
+	;xor a
+	;jp horizontal
+	jp loop
+LEFT_suit:
 	pop ix
 	push de
 	ld a,(pencol)
@@ -665,9 +637,10 @@ CurLeft:
 	sbc hl,bc		; we move the cursor position
 	xor a
 	jp horizontal
+
 	
 CurRight:
-	call erasePrint	; Erasing of the cursor
+	call erasePrint	; Erasing the cursor
 
 	pop de			; DE = number of the Lbl ahead the cursor
 	push de
@@ -701,7 +674,7 @@ noScroll:
 	jp m,NotAtTheEnd
 	jp z,NotAtTheEnd
 
-	ld a,9			; If yes, we adjust the position Y of the cursor (must be in front of the last Lbl)
+	ld a,9			; If so, we adjust the position Y of the cursor (must be in front of the last Lbl)
 	ld hl,(nbrLbls)
 	dec hl
 	call _DivHLByA
@@ -742,7 +715,7 @@ NotAtTheEnd:
 	jp horizontal
 
 CurUp:
-	call erasePrint	; Erasing of the cursor
+	call erasePrint	; Erasing the cursor
 
 	pop de			; DE = number of the Lbl ahead the cursor
 	push de
@@ -767,7 +740,7 @@ CurUp:
 
 
 CurDown:
-	call erasePrint	; Erasing of the cursor
+	call erasePrint	; Erasing the cursor
 
 	pop de			; DE = number of the Lbl ahead the cursor
 	push de
@@ -901,7 +874,14 @@ lblsToIgnore:			; We pass (HL) Lbls
 	jr displayLbl
 
 dispGoUp:
+	ld hl,(localLanguage)
+	ld de,$02010C ; if French
+	or a
+	sbc hl,de
 	ld hl,TEXTGoUp
+	jr nz,UPisEN
+	ld hl,TEXTGoUpFR
+UPisEN:
 	call _vputs
 	ld a,60
 	ld (penrow),a
@@ -988,7 +968,14 @@ dispGoDown:
 	ld a,1
 	ld (lastLblDisplayed),a
 
+	ld hl,(localLanguage)
+	ld de,$02010C ; if French
+	or a
+	sbc hl,de
 	ld hl,TEXTGoDown
+	jr nz,DOWNisEN
+	ld hl,TEXTGoDownFR
+DOWNisEN:
 	call _vputs
 	set GoDownDisplayed, (iy+asm_Flag3)
 	ld hl,nbrLbls
@@ -1004,5 +991,10 @@ TEXTGoUp:
 	.db "Top",0
 TEXTGoDown:
 	.db "Btm",0
-endGetkeyHook:
+TEXTGoUpFR:
+	.db "Haut",0
+TEXTGoDownFR:
+	.db "Bas",0
+endInstantGoto:
+#include "editMem.z80"
 endHomescreenHook:

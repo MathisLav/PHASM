@@ -1,0 +1,1028 @@
+	.org $D052C6+4000
+menuAPPVAR:
+	xor a
+	ld (wintop),a
+	ld (nbrAVIgnore),a
+	ld hl,$000101
+	ld (currentItemNum),hl
+	dec h
+	dec l
+	ld (drawFGColor),hl
+
+	call _cursorOff
+	call _clrlcdfull
+	call _homeup
+	ld hl,AV_HEADER
+	set textInverse, (IY+textFlags)
+	call _puts
+	res textInverse, (IY+textFlags)
+	call _puts
+	call _puts
+
+storeAppVarsNames:
+	ld hl,(progPtr)
+	ld de,namesBuf
+	push de
+loopNextAppV:
+	ex de,hl
+	ld hl,(OPBase)
+	or a
+	sbc hl,de
+	jr nc,lastElement
+	ex de,hl
+
+	ld a,(hl)
+	ld de,-6
+	add hl,de
+	cp AppVarObj
+	jr z,AppVarFound
+	ld a,(hl)
+	inc a
+	ld de,0
+	ld e,a
+	or a
+	sbc hl,de
+	jr loopNextAppV
+AppVarFound:
+	pop de
+	push de
+	ld a,8
+	ld (de),a
+	ld b,(hl)
+	push bc
+	inc de
+	dec hl
+cpyNameToBuf:
+	ld a,(hl)
+	ld (de),a
+	inc de
+	dec hl
+	djnz cpyNameToBuf
+	ld a,' '
+	ld (de),a
+	pop bc
+	ld a,8
+	sub a,b
+	push hl
+	push de
+	pop hl
+	inc de
+	ldir
+	pop de
+
+	pop hl
+	ld bc,9
+	add hl,bc
+	push hl
+	ld hl,nbrElements
+	inc (hl)
+	ex de,hl
+	jr loopNextAppV
+lastElement:
+	pop hl
+	set emptyMenu, (IY+asm_flag3)
+	ld a,(nbrElements)
+	or a
+	jr z,mainloop
+	res emptyMenu, (IY+asm_flag3)
+
+dispAppVarsNames:
+	call _homeup
+	ld hl,namesBuf
+	ld a,(nbrAVIgnore)
+	ld c,a
+	ld e,'0'
+	add a,e
+	ld e,a
+	ld b,9
+	mlt bc
+	add hl,bc
+	ld a,(nbrElements)
+	cp 10
+	jr c,lessThan9El
+	ld a,9
+lessThan9El:
+	ld b,a
+	ld a,e
+listAppVars:
+	push hl
+	call _newline
+	inc a
+	ld e,a
+	ld c,30h
+	sub a,c
+	ld d,a
+	ld a,(currentItemNum)
+	cp d
+	jr nz,notCurrentItem
+	set textInverse, (IY+textFlags)
+notCurrentItem:
+	ld a,e
+	push af
+	cp '9'+1
+	jr c,dispNum
+	ld a,' '
+dispNum:
+	call _putC
+	ld a,':'
+	call _putC
+	res textInverse, (IY+textFlags)
+	push bc
+	call _putPS
+	pop bc
+	pop af
+	pop hl
+	ld de,9
+	add hl,de
+	djnz listAppVars
+
+mainloop:
+	call _getkey
+	bit emptyMenu, (IY+asm_flag3)
+	jr nz,noItem
+	cp kDown
+	jr z,menuDown
+	cp kUp
+	jr z,menuUp
+	cp kAlphaDown
+	jr z,menuDown
+	cp kAlphaUp
+	jr z,menuUp
+	cp kEnter
+	jp z,EditMemory
+	cp k1
+	jr nc,selectItemNum
+noItem:
+	cp kLeft
+	jp z,editByAddress
+	cp kRight
+	jp z,editByAddress
+	cp kQuit
+	jr z,quitMemEdit
+	cp kClear
+	jr nz,mainloop
+quitMemEdit:
+	call _setupHome
+	jp _JForceCMDNoChar
+
+selectItemNum:
+	cp k9+1
+	jr nc,mainloop
+	ld b,8Eh
+	sub a,b
+	ld hl,(nbrElements)
+	inc l
+	cp l
+	jr nc,mainloop
+	ld (currentItemNum),a
+	jp EditMemory
+
+menuDown:
+	ld hl,currentItemNum
+	ld a,(nbrElements)
+	cp (hl)
+	jr z,mainloop
+	inc (hl)
+	ld a,(nbrAVIgnore)
+	ld b,10
+	add a,b
+	cp (hl)
+	jr nz,drawNums
+	ld hl,nbrAVIgnore
+	inc (hl)
+	jp dispAppVarsNames
+menuUp:
+	ld hl,currentItemNum
+	ld a,(hl)
+	cp 1
+	jp z,mainloop
+	dec (hl)
+	ld a,(nbrAVIgnore)
+	cp (hl)
+	jr nz,drawNums
+	ld hl,nbrAVIgnore
+	dec (hl)
+	jp dispAppVarsNames
+drawNums:
+	call _homeup
+	ld a,(nbrElements)
+	cp 10
+	jr c,lessThan9El2
+	ld a,9
+lessThan9El2:
+	ld b,a
+	ld c,'0'
+	ld a,(nbrAVIgnore)
+	add a,c
+	push af
+	set textEraseBelow, (IY+textFlags)
+drawNumsLoop:
+	call _newline
+	pop af
+	inc a
+	push af
+	ld c,a
+	ld e,30h
+	sub a,e
+	cp (hl)
+	jr nz,notCurrent
+	set textInverse, (IY+textFlags)
+notCurrent:
+	ld a,c
+	cp '9'+1
+	jr c,dispNum2
+	ld a,' '
+dispNum2:
+	set 0,(iy+$08)
+	call _putC
+	ld a,':'
+	call _putC
+	res textInverse, (IY+textFlags)
+	djnz drawNumsLoop
+	pop af
+	jp mainloop
+
+editByAddress:
+	call _clrlcdfull
+	call _homeup
+	ld hl,AV_HEADER
+	call _puts
+	call _puts
+	set textInverse, (IY+textFlags)
+	call _puts
+	res textInverse, (IY+textFlags)
+
+	call _newline
+	ld hl,(localLanguage)
+	ld de,$02010C ; if French
+	or a
+	sbc hl,de
+	ld hl,ENTER_address
+	jr nz,ADDRisEN
+	ld hl,ENTER_addressFR
+ADDRisEN:
+	call _puts
+	set fracDrawLFont, (iy+fontFlags)
+	call INPUT_addr
+	jp z,menuAPPVAR
+	set baseADDR, (iy+asm_flag3)
+	res archivedAV, (iy+asm_flag3)
+	call _clrlcdfull
+	ld hl,0
+	ld (currow),hl
+	ld hl,ADDR_txt
+	call _puts
+	ld a,':'
+	call _putC
+	ld hl,BufAddrASCII
+	call _puts
+	jp dispBody
+
+INPUT_addr:
+	; INPUT :
+	;	- fstElWin and BufAddrASCII must be 0
+	; OUPUT :
+	;	- fstElWin and BufAddrASCII are the address
+	ld hl,0
+	ld (fstElWin),hl
+	ld hl,BufAddrASCII
+	push hl
+	ld (hl),'0'
+	ld de,BufAddrASCII+1
+	ld bc,5
+	ldir
+	pop hl
+	call _putS
+	ld a,10
+	ld (curcol),a
+	ld bc,BufAddrASCII
+	ld de,fstElWin+2
+INPUT_loop:
+	call _getcsc
+	cp skLeft
+	ret z
+	cp skRight
+	ret z
+	cp skDel
+	jr z,INPUT_del
+	cp 12h
+	jr nc,INPUT_put
+	cp skEnter
+	jr z,INPUT_end
+	cp skClear
+	jr nz,INPUT_loop
+	; quit the menu
+	pop ix
+	jp quitMemEdit
+INPUT_end:
+	or a
+	ret
+
+INPUT_del:
+	; INPUT :
+	;	- (BC) = address to delete the ASCII number
+	;	- (DE) = address to delete the 4bits number
+	;	- Flag secNibble = MSB=1 / LSB=0
+	; OUPUT :
+	;	- Flag secNibble inverted
+	;	- DE decremented if secNibble=1
+	;	- BC incremented
+	;	- screen updated
+	ld hl,curcol
+	ld a,10
+	cp (hl)
+	jr z,INPUT_loop
+	dec (hl)
+	dec bc
+	ld a,'0'
+	ld (bc),a
+	call _putMap
+	bit secNibble, (iy+asm_flag3)
+	jr z,INPUT_decAddr
+	res secNibble, (iy+asm_flag3)
+	ld a,(de)
+	and %00001111
+	ld (de),a
+	jr INPUT_loop
+INPUT_decAddr:
+	set secNibble, (iy+asm_flag3)
+	inc de
+	ld a,(de)
+	and %11110000
+	ld (de),a
+	jr INPUT_loop
+
+INPUT_put:
+	; INPUT :
+	;	- A = key
+	;	- (DE) = address to insert 4bits number
+	;	- BC = address to store the ASCII number
+	;	- Flag secNibble = MSB=1 / LSB=0
+	; OUPUT :
+	;	- Flag secNibble inverted
+	;	- DE decremented if secNibble=1
+	;	- BC incremented
+	cp 30h
+	jr nc,INPUT_loop
+	ld hl,fstElWin-1
+	or a
+	sbc hl,de
+	jr z,INPUT_loop
+	ld l,12h
+	sub a,l
+	ld hl,LUT_keyToVal
+	push de
+	ld de,0
+	ld e,a
+	add hl,de
+	pop de
+	ld a,(hl)
+	cp -1
+	jr z,INPUT_loop
+	push af
+
+	ld l,a	
+	ld a,%11110000
+	bit secNibble, (IY+asm_flag3)
+	jr nz,INPUT_changeLSBs
+	ld a,%00001111
+	sla l
+	sla l
+	sla l
+	sla l
+INPUT_changeLSBs:
+	ex de,hl
+	and (hl)
+	or e
+	ld (hl),a
+	ex de,hl
+
+	pop af
+	ld l,30h
+	add a,l
+	cp 3Ah
+	jr c,INPUT_NaL ; not a letter
+	ld l,7
+	add a,l
+INPUT_NaL:
+	ld (bc),a
+	inc bc
+	call _putC
+	bit secNibble, (iy+asm_flag3)
+	jr z,INPUT_fstNibble
+	res secNibble, (iy+asm_flag3)
+	dec de
+	jp INPUT_loop
+INPUT_fstNibble:
+	set secNibble, (iy+asm_flag3)
+	jp INPUT_loop
+
+
+EditMemory:
+	; INPUT :
+	;	- AppVar to edit = (currentItemNum)*9+namesBuf
+	; OUTPUT :
+	;	- Memory edited
+	res baseADDR, (iy+asm_flag3)
+	ld a,(currentItemNum)
+	dec a
+	ld hl,0
+	ld l,a
+	ld h,9
+	mlt hl
+	ld de,namesBuf
+	add hl,de
+	ld a,AppVarObj
+	ld (OP1),a
+	ld de,OP1+1
+	ld bc,8
+	inc hl
+	ldir
+	ld hl,OP1
+findEndName:
+	inc hl
+	ld a,(hl)
+	cp ' '
+	jr nz,findEndName
+	ld (hl),0
+	ld a,b
+	cp 16
+	jr c,not8CharNm
+	ld a,15
+not8CharNm:
+
+	call _op1toop6
+	res archivedAV, (IY+asm_flag3)
+	call _chkfindsym
+	call _chkInRam
+	jr z,AVinRam
+	call _ARC_UNARC
+	set archivedAV, (IY+asm_flag3)
+AVinRam:
+	inc de
+	inc de
+	ld (fstElWin),de
+	
+	call _clrScrn
+	call _homeup
+	ld hl,AV_TITLE
+	call _puts
+	xor a
+	ld (OP1+9),a
+	ld hl,OP1+1
+	call _puts
+dispBody:
+	; We check the type of calculator (there's some differences concerning outputs of getkey)
+	res isTi84CE, (iy+asm_flag3)
+	call _boot_GetCertCalcString
+	inc hl
+	inc hl
+	inc hl
+	inc hl
+	ld a,(hl)
+	cp '3'
+	jr z,is83PCE
+	set isTi84CE, (iy+asm_flag3)
+is83PCE:
+	ld hl,0
+	ld (cursorDataX),hl
+	ld (fillRectColor),hl
+	ld hl,22
+	ld de,25
+	ld bc,$40E7
+	call _FillRect
+	ld hl,188
+	ld de,191
+	call _FillRect
+	ld hl,300
+	ld de,303
+	call _FillRect
+	res secNibble, (IY+asm_flag3)
+
+dispData:
+	res textEraseBelow, (IY+textFlags)
+	set fracDrawLFont, (IY+fontFlags)
+	ld de,(fstElWin)
+	ld a,$44
+	ld (penrow),a
+	ld b,7
+loopDispRows:
+	push bc
+	ld hl,38
+	ld (pencol),hl
+	ld b,4
+	push de
+loopDispHexaColumn:
+	push bc
+	ld a,(de)
+	ld hl,OP1
+	call decToHexaToHL
+	xor a
+	ld (OP1+2),a
+	dec hl
+	res textEraseBelow, (IY+textFlags)
+	call _vputs
+	ld hl,(pencol)
+	ld bc,14
+	add hl,bc
+	ld (pencol),hl
+	inc de
+	pop bc
+	djnz loopDispHexaColumn
+
+	ld a,205
+	ld (pencol),a
+	pop de
+	ld hl,BufDispASCII
+	push hl
+	ld b,4
+dispACSII:
+	inc hl
+	ld a,(de)
+	ld (hl),a
+	inc de
+	inc hl
+	djnz dispACSII
+	pop hl
+	call _vputPS
+
+	ld a,(penrow)
+	ld b,24
+	add a,b
+	ld (penrow),a
+	pop bc
+	djnz loopDispRows
+
+	ld de,$000000
+	call dispEraseCursor
+
+dispADDR:
+	res fracDrawLFont, (IY+fontFlags)
+	ld hl,253
+	ld (pencol),hl
+	ld a,40
+	ld (penrow),a
+	ld a,'$'
+	call _vputMap
+
+	ld a,(cursorDataY)
+	sla a
+	sla a
+	ld hl,cursorDataX
+	add a,(hl)
+	ld de,0
+	ld e,a
+	ld hl,(fstElWin)
+	add hl,de
+	call _setAToHLU
+	ex de,hl
+	ld hl,OP1
+	push hl
+	call decToHexaToHL
+	ld a,d
+	inc hl
+	call decToHexaToHL
+	ld a,e
+	inc hl
+	call decToHexaToHL
+	inc hl
+	ld (hl),0
+
+	pop hl
+	call _vputs
+	set fracDrawLFont, (IY+fontFlags)
+
+loopEdit:
+	call _getkey
+	or a
+	jr z,loopEdit
+	cp kDown
+	jp z,editDown
+	cp kUp
+	jp z,editUp
+	cp kAlphaDown
+	jp z,jumpDown
+	cp kAlphaUp
+	jp z,jumpUp
+	cp kLeft
+	jp z,editLeft
+	cp kRight
+	jp z,editRight
+	cp kEnter
+	jp z,editRight
+
+	cp k0
+	jr c,lessThanK0
+	cp kCapF+1
+	jp c,editPut
+lessThanK0:
+	ld b,0
+	cp kSpace
+	jp z,PUT_suit
+	inc b
+	cp kCapY
+	jr z,PUT_suit
+	inc b
+	cp kCapZ
+	jr z,PUT_suit
+	inc b
+	cp kTheta
+	jr z,PUT_suit
+	inc b
+	cp kCapT
+	jr z,PUT_suit
+	inc b
+	cp kCapU
+	jr z,PUT_suit
+	inc b
+	cp kCapV
+	jr z,PUT_suit
+	inc b
+	cp kCapO
+	jr z,PUT_suit
+	inc b
+	cp kCapP
+	jr z,PUT_suit
+	inc b
+	cp kCapQ
+	jr z,PUT_suit
+	inc b
+	cp kMath
+	jr z,PUT_suit
+	inc b
+
+	bit isTi84CE, (iy+asm_flag3)
+	jp z,LOOP_is83PCE
+	cp kAppsMenu
+	jr z,PUT_suit
+	inc b
+	cp kPrgm
+	jr z,PUT_suit
+	inc b
+	cp kInv
+	jr z,PUT_suit
+	inc b
+	cp kSin
+	jr z,PUT_suit
+	inc b
+	cp kCos
+	jr z,PUT_suit
+
+LOOP_suit:
+	cp kQuit
+	jr z,LOOP_end
+	cp kClear
+	jp nz,loopEdit
+LOOP_end:
+	bit archivedAV, (IY+asm_flag3)
+	jr z,AVnotInArc
+	call _op6toop1
+	call _ARC_UNARC
+AVnotInArc:
+	jp quitMemEdit
+
+editPut:
+	cp kEE
+	jr z,lessThanK0
+	cp kSpace
+	jr z,lessThanK0
+	ld b,k0
+	sub a,b
+	cp 10
+	jr c,notALtr
+	dec a
+	dec a
+notALtr:
+	ld b,a
+PUT_suit:
+	; INPUT :
+	;	- B = 4bits number to insert [0-F]
+	;	- (fstElWin) = address to inset B[0-3]
+	;	- Flag secNibble = MSB=1 / LSB=0
+	; OUPUT :
+	;	- (fstElWin) = b[0-3]
+	;	- Flag secNibble inverted
+	push bc
+	ld hl,(fstElWin)
+	ld a,(cursorDataY)
+	sla a
+	sla a
+	ld de,0
+	ld e,a
+	ld a,(cursorDataX)
+	add a,e
+	ld e,a
+	add hl,de
+	call _setAToHLU
+	cp $D0
+	jp c,loopEdit
+	; b=num
+	ld a,%11110000
+	bit secNibble, (IY+asm_flag3)
+	jr nz,changeLSBs
+	ld a,%00001111
+	sla b
+	sla b
+	sla b
+	sla b
+changeLSBs:
+	and (hl)
+	or b
+	ld (hl),a
+
+	pop af
+	ld b,30h
+	add a,b
+	cp 3Ah
+	jr c,NaL ; not a letter
+	ld b,7
+	add a,b
+NaL:
+
+	ld c,a ; save a
+	ld a,(cursorDataY)
+	ld e,a
+	ld d,24
+	mlt de
+	ld a,$44
+	add a,e
+	ld (penrow),a
+	ld a,(cursorDataX)
+	ld e,a
+	ld d,38
+	mlt de
+
+	ld a,38
+	bit secNibble, (IY+asm_flag3)
+	jr z,fstNibble
+	ld a,38+12
+fstNibble:
+	add a,e
+	ld e,a
+	ld (pencol),de
+	ld a,c ; restore a
+	call _vPutMap
+
+	bit secNibble, (IY+asm_flag3)
+	jp nz,editRight
+	set secNibble, (IY+asm_flag3)
+	jp loopEdit
+
+LOOP_is83PCE: ; ti83pce
+	cp kMatrix
+	jp z,PUT_suit
+	inc b
+	cp kPrgm
+	jp z,PUT_suit
+	inc b
+	ld e,a
+	ld a,(keyExtend)
+	cp 18
+	jp z,PUT_suit
+	inc b
+	cp 17
+	jp z,PUT_suit
+	inc b
+	cp 20
+	jp z,PUT_suit
+	ld a,e
+	jp LOOP_suit
+
+editDown:
+	ld de,$FFFFFF
+	call dispEraseCursor
+	ld hl,cursorDataY
+	ld a,6
+	cp (hl)
+	jr z,downOverflow
+	inc (hl)
+	inc de
+	call dispEraseCursor
+	jp dispADDR
+downOverflow:
+	ld hl,(fstElWin)
+	inc hl
+	inc hl
+	inc hl
+	inc hl
+	ld (fstElWin),hl
+	jp dispData
+
+jumpDown:
+	ld hl,(fstElWin)
+	ld de,7*4
+	add hl,de
+	ld (fstElWin),hl
+	jp dispData
+
+editUp:
+	ld de,$FFFFFF
+	call dispEraseCursor
+	ld hl,cursorDataY
+	xor a
+	cp (hl)
+	jr z,upOverflow
+	dec (hl)
+	inc de
+	call dispEraseCursor
+	jp dispADDR
+upOverflow:
+	ld hl,(fstElWin)
+	dec hl
+	dec hl
+	dec hl
+	dec hl
+	ld (fstElWin),hl
+	jp dispData
+
+jumpUp:
+	ld hl,(fstElWin)
+	ld de,-(7*4)
+	add hl,de
+	ld (fstElWin),hl
+	jp dispData
+
+editLeft:
+	ld de,$FFFFFF
+	call dispEraseCursor
+	ld hl,cursorDataX
+	xor a
+	cp (hl)
+	jr z,leftOverflow
+	dec (hl)
+	inc de
+	call dispEraseCursor
+	jp dispADDR
+leftOverflow:
+	ld (hl),3
+	ld a,(cursorDataY)
+	or a
+	jr z,upOverflow
+	dec a
+	ld (cursorDataY),a
+	inc de
+	call dispEraseCursor
+	jp dispADDR
+
+editRight:
+	ld de,$FFFFFF
+	call dispEraseCursor
+	ld hl,cursorDataX
+	ld a,3
+	cp (hl)
+	jr z,rightOverflow
+	inc (hl)
+	inc de
+	call dispEraseCursor
+	jp dispADDR
+rightOverflow:
+	ld (hl),0
+	ld a,(cursorDataY)
+	cp 6
+	jp z,downOverflow
+	inc a
+	ld (cursorDataY),a
+	inc de
+	call dispEraseCursor
+	jp dispADDR
+
+dispEraseCursor:
+	; INPUT :
+	;	- DE = color of the cursor
+	;	- (cursorDataX/Y) = position of the cursor
+	; OUTPUT :
+	;	- cursor displayed
+	;	- B = 0
+	bit secNibble, (IY+asm_flag3)
+	jr z,noChange
+	ld hl,(cursorDataX)
+	ld h,24
+	mlt hl
+	ld bc,205
+	add hl,bc
+	ld (pencol),hl
+	ld hl,(fstElWin)
+	ld a,(cursorDataY)
+	sla a
+	sla a
+	ld c,a
+	ld a,(cursorDataX)
+	add a,c
+	ld c,a
+	add hl,bc
+	ld a,(hl)
+	ex de,hl
+	call _vPutMap
+	ex de,hl
+	res secNibble, (IY+asm_flag3)
+noChange:
+	ld a,(cursorDataY)
+	ld hl,POSY_LUT
+	ld bc,0
+	ld b,3
+	ld c,a
+	mlt bc
+	add hl,bc
+	ld bc,(hl)
+suitCursor:
+	ld a,(cursorDataX)
+	ld hl,0
+	ld h,38*2
+	ld l,a
+	mlt hl
+	add hl,bc
+	ld bc,40
+	or a
+	sbc hl,bc
+	ld b,3
+dispCursorLoopY:
+	push bc
+	ld b,14
+dispCursorLoopX:
+	ld (hl),de
+	inc hl
+	inc hl
+	inc hl
+	djnz dispCursorLoopX
+	ld (hl),de
+	inc hl
+	ld (hl),de
+	ld bc,(320*2)-43
+	add hl,bc
+	pop bc
+	djnz dispCursorLoopY
+	ret
+
+decToHexaToHL:
+	; INPUT :
+	;      - A = decimal
+	; OUPUT :
+	;      - (HL) = String of the converted number
+	push af
+	srl a
+	srl a
+	srl a
+	srl a
+	push af
+	ld b,30h
+	add a,b
+	cp 3Ah
+	jr c,numChar1
+	ld b,7
+	add a,b
+numChar1:
+	ld (hl),a
+	inc hl
+
+	pop bc
+	pop af
+	sla b
+	sla b
+	sla b
+	sla b
+	sub a,b
+	ld b,30h
+	add a,b
+	cp 3Ah
+	jr c,numChar2
+	ld b,7
+	add a,b
+numChar2:
+	ld (hl),a
+	ret
+
+AV_HEADER:
+	.db "EDIT",0
+	.db " ",0
+ADDR_txt:
+	.db "ADDR",0
+ENTER_address:
+	.db "Address : ",0
+ENTER_addressFR:
+	.db "Adresse : ",0
+AV_TITLE:
+	.db "APPVAR:",0
+currentItemNum:
+	.db 1
+currentSubmenuNum:
+	.db 1
+nbrElements:
+	.db 0
+BufDispASCII: ; used for displaying ASCII line in the editor
+	.db 7,0,$20,0,$20,0,$20,0
+BufAddrASCII: ; used in INPUT_'s routine
+	.db '0','0','0','0','0','0',0
+LUT_keyToVal: ; used with getCSC
+	.db $03,$06,$09,$FF,$FF,$FF,$FF,$FF	; 3 6 9 * * * * *
+	.db $02,$05,$08,$FF,$0F,$0C,$FF		; 2 5 8 * F C *
+	.db $00,$01,$04,$07,$FF,$0E,0Bh		; 0 1 4 7 * E B
+	.db $FF,$FF,$FF,$FF,$FF,$FF,$0D,0Ah	; * * * * * * D A
+POSY_LUT: ; Ypos of the cursor
+	.dl vRam+(((084*320)+58)*2)
+	.dl vRam+(((108*320)+58)*2)
+	.dl vRam+(((132*320)+58)*2)
+	.dl vRam+(((156*320)+58)*2)
+	.dl vRam+(((180*320)+58)*2)
+	.dl vRam+(((204*320)+58)*2)
+	.dl vRam+(((228*320)+58)*2)
+endMemoryEditor:
