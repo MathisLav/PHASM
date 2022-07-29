@@ -1,6 +1,6 @@
-#PHASM
+# PHASM
 
-###Features:
+### Features:
 * Works on the TI-84+CE and TI-83 Premium CE
 * Executes archived (sub-)programs
 * Executes assembly (sub-)programs (without the `Asm(` prefix)
@@ -9,13 +9,13 @@
 * Built-in Memory Editor: just press `[Alpha]`+`[VARS]` to edit an AppVar or the raw memory (PLEASE READ THE MEMEDIT-README)
 * Languages available: English and French. Feel free to ask if you want another one!
 
-###Setup:
+### Setup:
 To use PHASM, send PHASM.8XG and PHASM.8XP to your calculator, with TI-Connect CE for instance. You don't need to ungroup PHASM.8XG.  
 Then, run `Asm(prgmPHASM)` and that's all there is to it!  
 To uninstall PHASM, just run prgmPHASM.  
 _/!\\ Do not delete or archive the AppVar created during the installation. It will trigger an error each time you will need it /!\\_
 
-##New:
+## New:
 * You'll not see anymore some weird programs like `prgmTTEMP` in your Program List!
 * If you choose to set your calculator to French, PHASM will detect it and display French texts
 * Several bugs fixed (TXTLIB bug, memory leaks, vars corruption)
@@ -28,11 +28,11 @@ Have fun!
 
 ------------------
 
-#MEMORY EDITOR
+# MEMORY EDITOR
 The Memory Editor allows you to edit the memory of your calculator easily.  
 To display the menu which will enable you to edit AppVars (archived or not) or to begin the edition wherever you want, you just have to press `[Alpha]`+`[VARS]`.
 
-###Keys (in the editor) :
+### Keys (in the editor) :
 * **Up**/**Down**/**Left**/**Right**: moves the cursor
 * **Alpha** + **up**/**down**: scrolls faster
 * **1**/**2**/**6**/**3**/**4**/**5**/**6**/**7**/**8**/**9**/**0**/**A**/**B**/**C**/**D**/**E**/**F** : inserts a number at the cursor location
